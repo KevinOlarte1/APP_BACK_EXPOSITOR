@@ -1,5 +1,6 @@
 package com.gestorventas.deposito.repositories;
 
+import com.gestorventas.deposito.enums.CategoriaProducto;
 import com.gestorventas.deposito.interfaces.CategoriaCount;
 import com.gestorventas.deposito.models.Producto;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -22,14 +23,15 @@ public interface ProductoRepository extends JpaRepository<Producto, Long>, JpaSp
     Producto findById(long id);
 
     @Query("""
-    SELECT lp.producto.categoria AS categoria, SUM(lp.cantidad) AS total
+    SELECT COALESCE(SUM(lp.cantidad), 0)
     FROM LineaPedido lp
     JOIN lp.pedido p
     JOIN p.cliente c
-    where c.vendedor.id = :idVendedor
-    group by lp.producto.categoria
+    WHERE c.vendedor.id = :idVendedor
+      AND lp.producto.categoria = :categoria
 """)
-    List<CategoriaCount> findVentasPorCategoria(Long idVendedor);
+    Long findVentasPorCategoria(Long idVendedor, CategoriaProducto categoria);
+
 
 
 }

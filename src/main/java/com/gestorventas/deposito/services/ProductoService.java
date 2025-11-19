@@ -116,7 +116,7 @@ public class ProductoService {
         return new ProductoResponseDto(producto);
     }
 
-    public List<CategoriaCount> getNumProductosCategoriaByVendedor(Long idVendedor) {
+    public Map<String, Long> getNumProductosCategoriaByVendedor(Long idVendedor) {
         if(idVendedor == null){
             throw new IllegalArgumentException("El id vendedor es obligatorio");
         }
@@ -124,10 +124,20 @@ public class ProductoService {
         if(vendedor == null){
             throw new IllegalArgumentException("El id vendedor es obligatorio");
         }
+        Map<String, Long> resultado = new LinkedHashMap<>();
+
+        for (CategoriaProducto categoria : CategoriaProducto.values()) {
+            Long total = productoRepository.findVentasPorCategoria(idVendedor, categoria);
+
+            // Si no hay ventas → poner 0
+            if (total == null) {
+                total = 0L;
+            }
+
+            resultado.put(categoria.name(), total);
+        }
 
 
-
-
-        return productoRepository.findVentasPorCategoria(idVendedor);
+        return resultado;
     }
 }

@@ -15,6 +15,9 @@ public class ProductosSpecifications {
                 predicate = cb.and(predicate,
                         cb.equal(root.get("categoria"), categoriaProducto));
             }
+            assert query != null;
+            query.orderBy(cb.asc(root.get("id")));
+
             return predicate;
         };
     }

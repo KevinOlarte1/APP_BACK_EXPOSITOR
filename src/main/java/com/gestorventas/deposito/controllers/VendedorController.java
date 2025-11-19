@@ -187,12 +187,12 @@ public class VendedorController {
             @ApiResponse(responseCode = "404", description = "Vendedor no encontrado")
 
     })
-    public ResponseEntity<List<CategoriaCount>> getStatsProductsByCategory(
+    public ResponseEntity<Map<String, Long>> getStatsProductsByCategory(
             Authentication auth) {
         var email = auth.getName();
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
         Long idVendedor = u.getId();
-        List<CategoriaCount> categorianum = productoService.getNumProductosCategoriaByVendedor(idVendedor);
+        Map<String, Long> categorianum = productoService.getNumProductosCategoriaByVendedor(idVendedor);
         return categorianum == null? ResponseEntity.notFound().build() : ResponseEntity.ok(categorianum);
 
     }
@@ -210,10 +210,10 @@ public class VendedorController {
 
     })
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<CategoriaCount>> getStatsProductsByCategory(
+    public ResponseEntity<Map<String, Long>> getStatsProductsByCategory(
             Authentication auth,
             @PathVariable Long idVendedor) {
-        List<CategoriaCount> categorianum = productoService.getNumProductosCategoriaByVendedor(idVendedor);
+        Map<String, Long> categorianum = productoService.getNumProductosCategoriaByVendedor(idVendedor);
         return categorianum == null? ResponseEntity.notFound().build() : ResponseEntity.ok(categorianum);
 
     }
