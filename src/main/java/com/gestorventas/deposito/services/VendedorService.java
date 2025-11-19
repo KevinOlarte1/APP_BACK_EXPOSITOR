@@ -2,17 +2,17 @@ package com.gestorventas.deposito.services;
 
 import com.gestorventas.deposito.dto.out.VendedorResponseDto;
 import com.gestorventas.deposito.enums.Role;
+import com.gestorventas.deposito.interfaces.GastosCliente;
+import com.gestorventas.deposito.interfaces.ProductoCount;
 import com.gestorventas.deposito.models.Vendedor;
+import com.gestorventas.deposito.repositories.ClienteRepository;
 import com.gestorventas.deposito.repositories.PedidoRepository;
 import com.gestorventas.deposito.repositories.VendedorRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Servicio encargado de gestionar la logica del negocio relacionado con los vendedores.
@@ -26,6 +26,7 @@ import java.util.Set;
 public class VendedorService {
 
     private final PedidoRepository pedidoRepository;
+    private final ClienteRepository clienteRepository;
     private VendedorRepository vendedorRepository;
     private PasswordEncoder passwordEncoder;
 
@@ -39,8 +40,8 @@ public class VendedorService {
      * @return DTO con los datos guardados visibles.
      * @throws IllegalArgumentException valores invalidos.
      */
-    public VendedorResponseDto add(String nombre, String password, String email, Role role) {
-        if (nombre == null || password == null || nombre.isEmpty() || password.isEmpty() || email == null || email.isEmpty())
+    public VendedorResponseDto add(String nombre,String apellido, String password, String email, Role role) {
+        if (nombre == null || apellido == null || password == null || nombre.isEmpty() || password.isEmpty() || email == null || email.isEmpty())
             throw new IllegalArgumentException();
 
         if (!MailService.esEmailValido(email))
@@ -48,6 +49,7 @@ public class VendedorService {
 
         var vendedor =Vendedor.builder()
                 .nombre(nombre)
+                .apellido(apellido)
                 .email(email)
                 .password(passwordEncoder.encode(password))
                 .roles(Set.of(role))
@@ -86,7 +88,7 @@ public class VendedorService {
      * @return DTO con los datos guardados visibles.
      * @throws RuntimeException no existe en el sistema un vendedor con ese id.
      */
-    public VendedorResponseDto update(long id, String nombre, String password, String email) {
+    public VendedorResponseDto update(long id, String nombre,String apellido, String password, String email) {
 
         Vendedor vendedor = vendedorRepository.findById(id);
         if (vendedor == null)
@@ -94,6 +96,9 @@ public class VendedorService {
 
         if (nombre != null && !nombre.isEmpty()) {
             vendedor.setNombre(nombre);
+        }
+        if (apellido != null && !apellido.isEmpty()) {
+            vendedor.setApellido(apellido);
         }
         if (password != null && !password.isEmpty()) {
             vendedor.setPassword(password);
@@ -144,5 +149,63 @@ public class VendedorService {
             result.put(year, total);
         }
         return result;
+    }
+
+    /**
+     * Obtener el numero de pedidos abiertos y cerrados por vendedor.
+     * @param idVendedor identificador del vendedor
+     * @return Map con los datos.
+     */
+    public Map<String, Long> getNumPedidos(Long idVendedor) {
+        if (idVendedor == null){
+            return null;
+        }
+        Map<String, Long> result = new LinkedHashMap<>();
+        Vendedor vendedor = vendedorRepository.findById((long)idVendedor);
+        if (vendedor == null){
+            return null;
+        }
+        result.put("abierrtos", pedidoRepository.countNotFinalizadosByVendedor(idVendedor));
+        result.put("cerrados", pedidoRepository.countFinalizadosByVendedor(idVendedor));
+        return result;
+
+    }
+
+    /**
+     * Obtener los gastos totales por cliente.
+     * @param idVendedor identificador del vendedor
+     * @return Map con los datos.
+     */
+    public List<GastosCliente> getGastosClientes(Long idVendedor) {
+        if (idVendedor == null){
+            return new ArrayList<>();
+        }
+        Vendedor vendedor = vendedorRepository.findById((long)idVendedor);
+        if (vendedor == null){
+            return new ArrayList<>();
+        }
+        System.out.println("BIEN");
+        return clienteRepository.getGastosClientesByVendedor(idVendedor);
+
+    }
+
+    public List<ProductoCount> getTopProducts(Long idVendedor, Long numProductos) {
+        System.out.println("asdasda");
+        if (idVendedor == null){
+            return new ArrayList<>();
+        }
+        Vendedor vendedor = vendedorRepository.findById((long)idVendedor);
+        if (vendedor == null){
+            return new ArrayList<>();
+        }
+        if (numProductos == null){
+            numProductos = 10L;
+        }
+        System.out.println("BIEN");
+        List<ProductoCount> result = pedidoRepository.countTopProductsByVendedor(idVendedor);
+        for (ProductoCount pc: result){
+            System.out.println(pc.getProductoId() + " " + pc.getTotal());
+        }
+        return  result.stream().limit(numProductos).toList();
     }
 }

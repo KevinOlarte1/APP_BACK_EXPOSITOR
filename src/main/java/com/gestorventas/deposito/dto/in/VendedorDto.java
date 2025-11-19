@@ -16,6 +16,7 @@ import lombok.Setter;
 public class VendedorDto {
 
     private String nombre;
+    private String apellido;
     private String email;
     private String password;
 

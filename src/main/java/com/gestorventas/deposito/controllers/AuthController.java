@@ -91,7 +91,7 @@ public class AuthController {
 
         //Actualizar BBDD
         user.setRefreshToken(newRefreshToken);
-        user.setRefreshTokenExpiry(LocalDateTime.now().plusDays(7));
+        user.setRefreshTokenExpiry(LocalDateTime.now().plusNanos(refreshExpirationMillis));
         vendedorRepository.save(user);
 
         return ResponseEntity.ok(new LoginResponseDto(newAccessToken,newRefreshToken));
@@ -112,7 +112,7 @@ public class AuthController {
         // Generar código de verificación (6 dígitos)
         String code = String.format("%06d", new Random().nextInt(999999));
         user.setResetCode(code);
-        user.setResetCodeExpiry(LocalDateTime.now().plusMinutes(10));
+        user.setResetCodeExpiry(LocalDateTime.now().plusMinutes(15));
         vendedorRepository.save(user);
 
         // Enviar correo
@@ -124,7 +124,7 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("message", "Codigo de verificación enviado."));
     }
 
-    @PostMapping("/reset_password")
+        @PostMapping("/reset_password")
     public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> request){
         String email = request.get("email");
         String code = request.get("code");

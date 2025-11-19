@@ -21,6 +21,12 @@ public class Cliente {
     private Long id;
 
     /**
+     * CIF del cliente.
+     */
+    @Column(nullable = false, unique = true)
+    private String cif;
+
+    /**
      * Nombre del cliente que representa en nuestra aplicacion
      */
     @Column(nullable = false)
@@ -42,7 +48,8 @@ public class Cliente {
 
 
     public Cliente() {}
-    public Cliente(String nombre){
+    public Cliente(String nombre, String cif){
         this.nombre = nombre;
+        this.cif = cif;
     }
 }

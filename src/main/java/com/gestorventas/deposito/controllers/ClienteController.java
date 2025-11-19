@@ -57,7 +57,7 @@ public class ClienteController {
     ) {
         var email = auth.getName();
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
-        return ResponseEntity.status(HttpStatus.CREATED).body(clienteService.add(clienteDto.getNombre(),u.getId()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(clienteService.add(clienteDto.getNombre(), clienteDto.getCif(),u.getId()));
     }
 
 
@@ -150,7 +150,7 @@ public class ClienteController {
     ) {
         var email = auth.getName();
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
-        ClienteResponseDto cliente = clienteService.update(idCliente, dto.getNombre(), u.getId());
+        ClienteResponseDto cliente = clienteService.update(idCliente, dto.getNombre(), dto.getCif(), u.getId());
         if (cliente == null)
             return ResponseEntity.notFound().build();
         return ResponseEntity.ok(cliente);

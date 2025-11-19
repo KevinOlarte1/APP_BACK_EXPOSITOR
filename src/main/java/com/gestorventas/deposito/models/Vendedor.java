@@ -30,6 +30,9 @@ public class Vendedor {
     @Column(nullable = false)
     private String nombre;
 
+    @Column(nullable = false)
+    private String apellido;
+
     /**
      * Contraseña del vendedor
      */
@@ -64,10 +67,11 @@ public class Vendedor {
     private Set<Cliente> clientes = new LinkedHashSet<>();
 
 
-    public Vendedor(String nombre, String password,String email) {
+    public Vendedor(String nombre, String apellido, String password,String email) {
         this.nombre = nombre;
         this.password = password;
         this.email = email;
+        this.apellido = apellido;
     }
 
 }

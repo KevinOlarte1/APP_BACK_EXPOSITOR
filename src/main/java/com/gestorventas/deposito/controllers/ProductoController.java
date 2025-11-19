@@ -79,6 +79,22 @@ public class ProductoController {
         return responseDto != null ? ResponseEntity.ok(responseDto) : ResponseEntity.notFound().build();
     }
 
+    @PutMapping("/{id}/update")
+    @Operation(summary = "Actualizar los datos de un producto", description = "Actualiza los datos de un producto")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Producto actualizado correctamente"),
+            @ApiResponse(responseCode = "404", description = "Producto no encontrado", content = @Content)
+    })
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ProductoResponseDto> update(
+            @PathVariable Long id,
+            @RequestBody ProductoDto productoDto){
+        ProductoResponseDto producto = productoService.update(id,productoDto);
+        return producto != null ? ResponseEntity.ok(producto) : ResponseEntity.notFound().build();
+
+    }
+
+
     /**
      * Eliminar un producto por su ID.
      * @param id identificador numerico que se usara para buscar

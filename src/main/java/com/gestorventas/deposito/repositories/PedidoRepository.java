@@ -1,5 +1,6 @@
 package com.gestorventas.deposito.repositories;
 
+import com.gestorventas.deposito.interfaces.ProductoCount;
 import com.gestorventas.deposito.models.Pedido;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -32,9 +33,9 @@ public interface PedidoRepository extends JpaRepository<Pedido,Long>, JpaSpecifi
 
     // Estadística por vendedor
     @Query("""
-           SELECT EXTRACT(YEAR FROM p.fecha), SUM(lp.precio * lp.cantidad)
+           SELECT EXTRACT(YEAR FROM p.fecha), ROUND(SUM(lp.precio * lp.cantidad),2)
            FROM Pedido p JOIN p.lineas lp
-           WHERE p.finalizado = true AND p.cliente.vendedor.id = :idVendedor
+           WHERE p.cliente.vendedor.id = :idVendedor
            GROUP BY EXTRACT(YEAR FROM p.fecha)
            ORDER BY EXTRACT(YEAR FROM p.fecha)
            """)
@@ -59,4 +60,31 @@ public interface PedidoRepository extends JpaRepository<Pedido,Long>, JpaSpecifi
            ORDER BY EXTRACT(YEAR FROM p.fecha)
            """)
     List<Object[]> getTotalesPorClientesDeVendedor(@Param("idVendedor") Long idVendedor, @Param("idCliente") Long idCliente);
+
+    @Query("""
+            SELECT COUNT(p)
+            FROM Pedido p
+            JOIN p.cliente c
+            WHERE c.vendedor.id = :idVendedor
+            AND p.finalizado = true
+""")
+    long countFinalizadosByVendedor(long idVendedor);
+
+    @Query("""
+            SELECT COUNT(p)
+            FROM Pedido p
+            JOIN p.cliente c
+            WHERE c.vendedor.id = :idVendedor
+            AND p.finalizado = false
+""")
+    long countNotFinalizadosByVendedor(long idVendedor);
+
+    @Query("""
+            SELECT lp.producto.id as productoId, SUM(lp.cantidad) as total
+            FROM Pedido p JOIN p.lineas lp
+            WHERE p.cliente.vendedor.id = :idVendedor
+            GROUP BY lp.producto.id
+            ORDER BY total DESC
+    """)
+    List<ProductoCount> countTopProductsByVendedor(Long idVendedor);
 }

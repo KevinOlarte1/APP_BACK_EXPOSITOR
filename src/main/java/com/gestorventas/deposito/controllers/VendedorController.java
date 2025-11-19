@@ -2,9 +2,14 @@ package com.gestorventas.deposito.controllers;
 
 import com.gestorventas.deposito.dto.in.VendedorDto;
 import com.gestorventas.deposito.dto.out.VendedorResponseDto;
+import com.gestorventas.deposito.enums.CategoriaProducto;
 import com.gestorventas.deposito.enums.Role;
+import com.gestorventas.deposito.interfaces.CategoriaCount;
+import com.gestorventas.deposito.interfaces.GastosCliente;
+import com.gestorventas.deposito.interfaces.ProductoCount;
 import com.gestorventas.deposito.models.Vendedor;
 import com.gestorventas.deposito.repositories.VendedorRepository;
+import com.gestorventas.deposito.services.ProductoService;
 import com.gestorventas.deposito.services.VendedorService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -35,6 +40,7 @@ public class VendedorController {
 
     private final VendedorService vendedorService;
     private final VendedorRepository vendedorRepository;
+    private final ProductoService productoService;
 
     /**
      * Crear un nuevo vendedor.
@@ -50,7 +56,7 @@ public class VendedorController {
     })
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<VendedorResponseDto> add(@RequestBody VendedorDto dto) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(vendedorService.add(dto.getNombre(), dto.getPassword(), dto.getEmail(), Role.USER));
+        return ResponseEntity.status(HttpStatus.CREATED).body(vendedorService.add(dto.getNombre(), dto.getApellido(), dto.getPassword(), dto.getEmail(), Role.USER));
     }
 
     /**
@@ -104,7 +110,7 @@ public class VendedorController {
             @PathVariable long id,
             @RequestBody VendedorDto dto
     ) {
-        VendedorResponseDto vendedor =  vendedorService.update(id, dto.getNombre(), dto.getPassword(), dto.getEmail());
+        VendedorResponseDto vendedor =  vendedorService.update(id, dto.getNombre(), dto.getApellido(), dto.getPassword(), dto.getEmail());
         if (vendedor == null)
             return ResponseEntity.notFound().build();
         return ResponseEntity.ok(vendedor);
@@ -148,7 +154,7 @@ public class VendedorController {
      * Metodo para obtener las estadisticas globales de la empresa
      * @return map con los datos de estadisticas
      */
-    @GetMapping("/stats")
+    @GetMapping("/stats/ingresoAnual")
     @Operation(summary = "Obtener las estadisticas globales", description = "ingresos por año de toda la empresa")
     @ApiResponse(responseCode = "200", description = "Mapeo por año de los ingresos")
     @PreAuthorize("hasRole('ADMIN')")
@@ -161,7 +167,7 @@ public class VendedorController {
      * @param idVendedor identificador del vendedor
      * @return map con los datos de estadisticas
      */
-    @GetMapping("/{idVendedor}/stats")
+    @GetMapping("/{idVendedor}/stats/ingresoAnual")
     @Operation(summary = "Obtener las estadisticas de un vendedor", description = "ingresos por año de un vendededor especifico")
     @ApiResponse(responseCode = "200", description = "Mapeo por año de los ingresos de ese vendedor.")
     @PreAuthorize("hasRole('ADMIN')")
@@ -169,6 +175,48 @@ public class VendedorController {
         return ResponseEntity.ok( vendedorService.getStats(idVendedor));
     }
 
+    /**
+     * Metodo para obtener las estadisticas de un vendedor especifico
+     * @param auth credenciales del usuario actual
+     * @return map con los datos de estadisticas
+     */
+    @GetMapping("/stats/numProductsCategoria")
+    @Operation(summary = "Obtenen un Map con la cant de product x categoria.", description = "map con num de productos de vendedor, vendidos por categoria")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Map calculado"),
+            @ApiResponse(responseCode = "404", description = "Vendedor no encontrado")
+
+    })
+    public ResponseEntity<List<CategoriaCount>> getStatsProductsByCategory(
+            Authentication auth) {
+        var email = auth.getName();
+        Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
+        Long idVendedor = u.getId();
+        List<CategoriaCount> categorianum = productoService.getNumProductosCategoriaByVendedor(idVendedor);
+        return categorianum == null? ResponseEntity.notFound().build() : ResponseEntity.ok(categorianum);
+
+    }
+
+    /**
+     * Metodo para obtener las estadisticas de un vendedor especifico
+     * @param auth credenciales del usuario actual
+     * @return map con los datos de estadisticas
+     */
+    @GetMapping("/{idVendedor}/stats/numProductsCategoria")
+    @Operation(summary = "Obtenen un Map con la cant de product x categoria.", description = "map con num de productos de vendedor, vendidos por categoria")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Map calculado"),
+            @ApiResponse(responseCode = "404", description = "Vendedor no encontrado")
+
+    })
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<CategoriaCount>> getStatsProductsByCategory(
+            Authentication auth,
+            @PathVariable Long idVendedor) {
+        List<CategoriaCount> categorianum = productoService.getNumProductosCategoriaByVendedor(idVendedor);
+        return categorianum == null? ResponseEntity.notFound().build() : ResponseEntity.ok(categorianum);
+
+    }
     /**
      * Metodo para obtener las estadisticas de un vendedor especifico
      * @param auth credenciales del usuario actual
@@ -183,6 +231,133 @@ public class VendedorController {
         Long idVendedor = u.getId();
         return ResponseEntity.ok( vendedorService.getStats(idVendedor));
     }
+
+    /**
+     * Obtener un map Conm el numero de pedidos generados por cada vendedor.
+     * @param auth credenciales del usuario actual
+     * @return map con los datos de estadisticas
+     */
+    @GetMapping(value = "/stats/numPedido")
+    @Operation(summary = "Obtener un map con el numero de pedidos generados por un vendedor", description = "map con num de pedidos generados por un vendedor")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Map calculado"),
+            @ApiResponse(responseCode = "404", description = "Vendedor no encontrado")
+    })
+    public ResponseEntity<Map<String, Long>> getNumPedidoGeneral(
+            Authentication auth
+    ){
+        var email = auth.getName();
+        Long idVendedor = vendedorRepository.findByEmail(email).orElseThrow().getId();
+        return ResponseEntity.ok(vendedorService.getNumPedidos(idVendedor));
+    }
+
+    /**
+     * Obtener un map Conm el numero de pedidos generados por cada vendedor.
+     * @param auth credenciales del usuario actual
+     * @param idVendedor identificador del vendedor
+     * @return map con los datos de estadisticas
+     */
+    @GetMapping(value = "/{idVendedor}/stats/numPedido")
+    @Operation(summary = "Obtener un map con el numero de pedidos generados por un vendedor", description = "map con num de pedidos generados por un vendedor")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Map calculado"),
+            @ApiResponse(responseCode = "404", description = "Vendedor no encontrado")
+    })
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Long>> getNumPedidoPorCliente(
+            Authentication auth,
+            @PathVariable Long idVendedor
+    ){
+        return ResponseEntity.ok(vendedorService.getNumPedidos(idVendedor));
+    }
+
+    /**
+     * Obtener un map con los gastos por cada cliente.
+     * @param idVendedor identificador del vendedor
+     * @return map con los datos de estadisticas
+     */
+    @GetMapping("/{idVendedor}/stats/gastoPorCliente")
+    @Operation(summary = "Obtener un map con los gastos por cada cliente", description = "map con los gastos por cada cliente")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Map calculado"),
+            @ApiResponse(responseCode = "404", description = "Vendedor no encontrado")
+    })
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<GastosCliente>> getGastoPorCliente(
+            @PathVariable Long idVendedor
+    ){
+        return ResponseEntity.ok(vendedorService.getGastosClientes(idVendedor));
+    }
+
+    /**
+     * Obtener un map con los gastos por cada cliente.
+     * @param auth credenciales del usuario actual
+     * @return map con los datos de estadisticas
+     */
+    @GetMapping("/stats/gastoPorCliente")
+    @Operation(summary = "Obtener un map con los gastos por cada cliente", description = "map con los gastos por cada cliente")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Map calculado"),
+            @ApiResponse(responseCode = "404", description = "Vendedor no encontrado")
+    })
+    public ResponseEntity<List<GastosCliente>> getGastoPorCliente(
+            Authentication auth
+
+    ){
+        var email = auth.getName();
+        Long idVendedor = vendedorRepository.findByEmail(email).orElseThrow().getId();
+        return ResponseEntity.ok(vendedorService.getGastosClientes(idVendedor));
+    }
+
+    /**
+     * lista con los prodctos mas vendidos mas su cantidad .
+     * @param numProductos num de prodicutos como limite
+     * @param auth credenciales del usuario actual
+     * @return lista de productos mas vendidos.
+     */
+    @GetMapping(value = "/stats/topProductos")
+    @Operation(summary = "Obtener los top productos", description = "lista con los productos mas vendidos mas su cantidad")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Lista de productos mas vendidos"),
+            @ApiResponse(responseCode = "404", description = "Vendedor no encontrado")
+    })
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<ProductoCount>> topProductos(
+            @RequestParam(required = false) Long numProductos,
+            Authentication auth
+    ) {
+        var email = auth.getName();
+        Long idVendedor = vendedorRepository.findByEmail(email).orElseThrow().getId();
+        List<ProductoCount> list =  vendedorService.getTopProducts(idVendedor, numProductos);
+
+        return ResponseEntity.ok(list);
+    }
+
+    /**
+     * lista con los prodctos mas vendidos mas su cantidad .
+     * @param numProductos num de prodicutos como limite
+     * @param idVendedor ID del vendedor a busacar
+     * @return lista de productos mas vendidos.
+     */
+    @GetMapping(value = "/{idVendedor}/stats/topProductos")
+    @Operation(summary = "Obtener los top productos", description = "lista con los productos mas vendidos mas su cantidad")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Lista de productos mas vendidos"),
+            @ApiResponse(responseCode = "404", description = "Vendedor no encontrado")
+    })
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<ProductoCount>> topProductos(
+            @PathVariable Long idVendedor,
+            @RequestParam(required = false) Long numProductos
+    ) {
+        List<ProductoCount> list =  vendedorService.getTopProducts(idVendedor, numProductos);
+
+        return ResponseEntity.ok(list);
+    }
+
+
+
+
 
 
 }

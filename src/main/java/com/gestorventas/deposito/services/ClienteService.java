@@ -37,10 +37,15 @@ public class ClienteService {
      * @return DTO con los datos guardados visibles.
      * @throws IllegalArgumentException datos erroneos.
      */
-    public ClienteResponseDto add(String nombre, long vendedorId) {
+    public ClienteResponseDto add(String nombre,String cif, long vendedorId) {
 
         if (nombre == null || nombre.isEmpty())
             throw new IllegalArgumentException("El nombre no puede estar vacío");
+        if (cif == null || cif.isEmpty())
+            throw new IllegalArgumentException("El cif no puede estar vacio");
+
+        if(clienteRepository.existsByCif(cif))
+            throw new IllegalArgumentException("El cif ya existe");
 
         Vendedor vendedor = vendedorRepository.findById(vendedorId);
         if (vendedor == null)
@@ -98,7 +103,7 @@ public class ClienteService {
      * @return la entidad {@link Cliente} actualizada
      * @throws RuntimeException si el cliente o vendedor no existen
      */
-    public ClienteResponseDto update(long id, String nombre, long vendedorId) {
+    public ClienteResponseDto update(long id, String nombre, String cif, long vendedorId) {
         Cliente cliente = clienteRepository.findById(id);
         if (cliente == null)
             return null;
@@ -109,6 +114,11 @@ public class ClienteService {
 
         if (nombre != null && !nombre.isEmpty()) {
             cliente.setNombre(nombre);
+        }
+
+        if (cif != null && !cif.isEmpty()){
+            if(!clienteRepository.existsByCif(cif))
+                cliente.setCif(cif);
         }
 
         return new ClienteResponseDto(clienteRepository.save(cliente));

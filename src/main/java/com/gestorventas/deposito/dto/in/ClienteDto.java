@@ -16,5 +16,6 @@ import java.util.List;
 @Getter
 @Setter
 public class ClienteDto {
+    private String cif;
     private String nombre;
 }

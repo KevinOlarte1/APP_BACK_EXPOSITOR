@@ -20,12 +20,14 @@ import java.util.List;
 @Setter
 public class ClienteResponseDto {
     private Long id;
+    private String cif;
     private String nombre;
     private Long idVendedor;
     private List<Long> idPedidos;
 
     public ClienteResponseDto(Cliente cliente) {
         this.id = cliente.getId();
+        this.cif = cliente.getCif();
         this.nombre = cliente.getNombre();
         this.idVendedor = cliente.getVendedor().getId();
         this.idPedidos = cliente.getPedidos()
