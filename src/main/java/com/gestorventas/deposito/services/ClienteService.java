@@ -95,6 +95,14 @@ public class ClienteService {
     }
 
     /**
+     * Obtener listado de todos los clientes registrados en el sistema.
+     * @return Listado DTO con todos los clientes.
+     */
+    public List<ClienteResponseDto> getAll() {
+        return clienteRepository.findAll().stream().map(ClienteResponseDto::new).toList();
+    }
+
+    /**
      * Actualizar los datos de un cliente existente.
      *
      * @param id         identificador del cliente a actualizar

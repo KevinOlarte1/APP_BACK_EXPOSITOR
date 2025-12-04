@@ -5,6 +5,7 @@ import com.gestorventas.deposito.models.Pedido;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -23,16 +24,21 @@ public class ClienteResponseDto {
     private String cif;
     private String nombre;
     private Long idVendedor;
-    private List<Long> idPedidos;
+    private List<Long> idPedidos = new ArrayList<>();
+    private int pedidosCerrados;
+    private int pedidosAbiertos;
 
     public ClienteResponseDto(Cliente cliente) {
         this.id = cliente.getId();
         this.cif = cliente.getCif();
         this.nombre = cliente.getNombre();
         this.idVendedor = cliente.getVendedor().getId();
-        this.idPedidos = cliente.getPedidos()
-                .stream()
-                .map(Pedido::getId)
-                .toList();
+        cliente.getPedidos().forEach(pedido ->{
+            if (pedido.isFinalizado())
+                this.pedidosCerrados++;
+            else
+                this.pedidosAbiertos++;
+            this.idPedidos.add(pedido.getId());
+        });
     }
 }

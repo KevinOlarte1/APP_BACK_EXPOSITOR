@@ -2,17 +2,16 @@ package com.gestorventas.deposito.services;
 
 import com.gestorventas.deposito.dto.in.ProductoDto;
 import com.gestorventas.deposito.dto.out.ProductoResponseDto;
-import com.gestorventas.deposito.enums.CategoriaProducto;
-import com.gestorventas.deposito.interfaces.CategoriaCount;
-import com.gestorventas.deposito.models.Producto;
+import com.gestorventas.deposito.models.producto.Categoria;
+import com.gestorventas.deposito.models.producto.Producto;
 import com.gestorventas.deposito.models.Vendedor;
+import com.gestorventas.deposito.repositories.CategoriaRepository;
 import com.gestorventas.deposito.repositories.ProductoRepository;
 import com.gestorventas.deposito.repositories.VendedorRepository;
 import com.gestorventas.deposito.specifications.ProductosSpecifications;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +29,7 @@ public class ProductoService {
 
     private final ProductoRepository productoRepository;
     private final VendedorRepository vendedorRepository;
+    private final CategoriaRepository categoriaRepository;
 
     /**
      * Guardar un nuevo producto en el sistema.
@@ -38,7 +38,7 @@ public class ProductoService {
      * @return DTO con los datos guardados visibles.
      * @throws RuntimeException entidades inexistentes.
      */
-    public ProductoResponseDto add(String descripcion, double precio, CategoriaProducto categoriaProducto) {
+    public ProductoResponseDto add(String descripcion, double precio, Long idCategoria) {
         if (descripcion == null || descripcion.isEmpty()) {
             throw new IllegalArgumentException("El descripcion es obligatorio");
         }
@@ -46,12 +46,17 @@ public class ProductoService {
             throw new IllegalArgumentException("El precio es obligatorio");
         }
 
-        if (categoriaProducto == null) {
+        if (idCategoria == null) {
             throw new IllegalArgumentException("La categoria es obligatoria");
         }
+        Categoria categoria = categoriaRepository.findById((long)idCategoria);
+        if (categoria == null) {
+            throw new RuntimeException("Categoria inexistente");
+        }
+
 
         Producto producto = Producto.builder()
-                .categoria(categoriaProducto)
+                .categoria(categoria)
                 .descripcion(descripcion)
                 .precio(precio)
                 .build();
@@ -63,8 +68,8 @@ public class ProductoService {
      * Listado con todos los priductos del sistema.
      * @return listado con los productos
      */
-    public List<ProductoResponseDto> getAll(CategoriaProducto categoriaProducto) {
-        var spec = ProductosSpecifications.withFilter(categoriaProducto);
+    public List<ProductoResponseDto> getAll(Long idCategoria) {
+        var spec = ProductosSpecifications.withFilter(idCategoria);
         return productoRepository.findAll(spec).stream()
                 .map(ProductoResponseDto::new)
                 .toList();
@@ -109,8 +114,10 @@ public class ProductoService {
         if (productoDto.getPrecio() != null) {
             producto.setPrecio(productoDto.getPrecio());
         }
-        if (productoDto.getCategoria() != null) {
-            producto.setCategoria(productoDto.getCategoria());
+        if (productoDto.getIdCategoria() != null) {
+            Categoria categoria  = categoriaRepository.findById((long) productoDto.getIdCategoria());
+            if(categoria != null)
+                producto.setCategoria(categoria);
         }
         producto = productoRepository.save(producto);
         return new ProductoResponseDto(producto);
@@ -126,15 +133,15 @@ public class ProductoService {
         }
         Map<String, Long> resultado = new LinkedHashMap<>();
 
-        for (CategoriaProducto categoria : CategoriaProducto.values()) {
-            Long total = productoRepository.findVentasPorCategoria(idVendedor, categoria);
+        for (Categoria categoria : categoriaRepository.findAll()) {
+            Long total = productoRepository.findVentasPorCategoria(idVendedor, categoria.getId());
 
             // Si no hay ventas → poner 0
             if (total == null) {
                 total = 0L;
             }
 
-            resultado.put(categoria.name(), total);
+            resultado.put(categoria.getNombre(), total);
         }
 
 

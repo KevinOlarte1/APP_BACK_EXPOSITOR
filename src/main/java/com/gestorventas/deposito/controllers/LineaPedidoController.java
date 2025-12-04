@@ -138,6 +138,29 @@ public class LineaPedidoController {
         return ResponseEntity.ok(lineaPedidoService.get(null,idPedido,null,idCliente));
     }
 
+    @PutMapping("/{idLinea}")
+    public ResponseEntity<LineaPedidoResponseDto> updateLinea(
+            Authentication auth,
+            @PathVariable Long idCliente,
+            @PathVariable Long idPedido,
+            @PathVariable Long idLinea,
+            @RequestBody LineaPedidoDto lineaDto){
+        var email = auth.getName();
+        Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
+        Long idVendedor = u.getId();
+        return ResponseEntity.ok(lineaPedidoService.update(idLinea, lineaDto.getCantidad(), lineaDto.getPrecio(), idVendedor));
+    }
+
+    @PutMapping("/{idLinea}/admin")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<LineaPedidoResponseDto> updateLinea(
+            @PathVariable Long idCliente,
+            @PathVariable Long idPedido,
+            @PathVariable Long idLinea,
+            @RequestBody LineaPedidoDto lineaDto){
+        return ResponseEntity.ok(lineaPedidoService.update(idLinea, lineaDto.getCantidad(), lineaDto.getPrecio(), null));
+    }
+
     /**
      * Eliminar una linea de un pedido.
      * @param idCliente identificador del cliente
@@ -159,6 +182,17 @@ public class LineaPedidoController {
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
         Long idVendedor = u.getId();
         lineaPedidoService.delete(idVendedor, idCliente, idPedido, idLinea);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/admin/{idLinea}")
+    @Operation(summary = "Eliminar una linea de un pedido", description = "Elimina una linea de un pedido")
+    @ApiResponse(responseCode = "204", description = "Linea de pedido eliminada", content = @Content)
+    public ResponseEntity<Void> deleteAllLineas(
+            @PathVariable Long idCliente,
+            @PathVariable Long idPedido,
+            @PathVariable Long idLinea){
+        lineaPedidoService.delete(idCliente, idPedido, idLinea);
         return ResponseEntity.noContent().build();
     }
 

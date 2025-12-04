@@ -44,20 +44,23 @@ public class PedidoService {
     /**
      * Guardar un nuevo pedido en el sistema.
      * @param idCliente identificador a quien se le va retribuir el peiddo.
+     * @param idVendedor identificador del vendedor que realizo el pedido.
+     * @param descuento porcentaje de descuento aplicado al pedido.
+     * @param iva porcentaje de iva aplicado al pedido.
      * @return DTO con los datos guardados visibles.
      * @throws RuntimeException entidades inexistentes.
      */
-    public PedidoResponseDto add( long idCliente, long idVendedor) {
+    public PedidoResponseDto add( long idCliente, long idVendedor, int descuento, int iva) {
         Cliente cliente = clienteRepository.findById(idCliente);
         if(cliente==null)
             throw new RuntimeException("Cliente inexistente");
         if (cliente.getVendedor().getId()!=idVendedor)
             throw new RuntimeException("Cliente inexistente");
 
-        Pedido pedido = new Pedido();
+        Pedido pedido = new Pedido(descuento, iva);
         pedido.setCliente(cliente);
 
-        pedidoRepository.save(pedido);
+        pedido = pedidoRepository.save(pedido);
         return new PedidoResponseDto(pedido);
     }
 
@@ -120,7 +123,7 @@ public class PedidoService {
      * @return peiddo actualizado.
      * @throws RuntimeException referencia no existe.
      */
-    public PedidoResponseDto update(long id, long idVendedor, long idCliente, LocalDate fecha) {
+    public PedidoResponseDto update(long id, long idVendedor, long idCliente, LocalDate fecha, int descuento, int iva) {
         Pedido pedido = pedidoRepository.findById(id);
 
         if(pedido==null)
@@ -135,7 +138,13 @@ public class PedidoService {
         if (fecha != null){
             pedido.setFecha(fecha);
         }
-        pedidoRepository.save(pedido);
+        if (descuento > 0){
+            pedido.setDescuento(descuento);
+        }
+        if (iva > 0){
+            pedido.setIva(iva);
+        }
+        pedido = pedidoRepository.save(pedido);
         return new PedidoResponseDto(pedido);
     }
 

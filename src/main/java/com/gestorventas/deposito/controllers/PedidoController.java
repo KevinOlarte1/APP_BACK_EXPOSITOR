@@ -1,6 +1,8 @@
 package com.gestorventas.deposito.controllers;
 
+import com.gestorventas.deposito.dto.in.UpdatePedidoRequestDto;
 import com.gestorventas.deposito.dto.out.PedidoResponseDto;
+import com.gestorventas.deposito.enums.Role;
 import com.gestorventas.deposito.models.Pedido;
 import com.gestorventas.deposito.models.Vendedor;
 import com.gestorventas.deposito.repositories.PedidoRepository;
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Controlador REST para gestionar pedidos de un cliente de un vendedor.
@@ -49,12 +52,17 @@ public class PedidoController {
             @ApiResponse(responseCode = "201", description = "Pedido creado correctamente"),
             @ApiResponse(responseCode = "500", description = "Error interno") //TODO: CAMBIAR ESTO, FASE PRUIEBA
     })
-    public ResponseEntity<PedidoResponseDto> add(
+    public ResponseEntity<?> add(
             Authentication auth,
-            @PathVariable Long idCliente) {
+            @PathVariable Long idCliente,
+            @RequestBody Map<String, Integer> porcentajes) {
         var email = auth.getName();
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
-        return ResponseEntity.status(HttpStatus.CREATED).body(pedidoService.add(idCliente, u.getId()));
+        Integer descuento = porcentajes.get("descuento");
+        Integer iva = porcentajes.get("iva");
+        if ( descuento == null || iva == null)
+            return ResponseEntity.badRequest().body("Los parametros de descuento y iva son obligatorios.");
+        return ResponseEntity.status(HttpStatus.CREATED).body(pedidoService.add(idCliente, u.getId(), descuento, iva));
     }
 
     /**
@@ -75,31 +83,19 @@ public class PedidoController {
             @PathVariable Long id) {
         var email = auth.getName();
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
-        Long idVendedor = u.getId();
-        PedidoResponseDto pedido = pedidoService.get(id,idCliente,idVendedor);
+        PedidoResponseDto pedido;
+        if(u.getRoles().contains(Role.ADMIN)){
+            pedido = pedidoService.get(id,idCliente);
+        }
+        else{
+            Long idVendedor = u.getId();
+            pedido = pedidoService.get(id,idCliente,idVendedor);
+        }
+
         return pedido != null ? ResponseEntity.ok(pedido) : ResponseEntity.notFound().build();
     }
 
-    /**
-     * Obtener un pedido concreto.
-     * @param idCliente identificador del cliente que va a realizar el pedido.
-     * @param id identificador numerico que se usara para buscar
-     * @return DTO con los datos guardados visibles.
-     */
-    @GetMapping("/{id}/admin")
-    @Operation(summary = "Obtener un pedido por su ID", description = "Obtener un pedido por su ID")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Pedido encontrado"),
-            @ApiResponse(responseCode = "404", description = "Pedido no encontrado", content = @io.swagger.v3.oas.annotations.media.Content)
-    })
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<PedidoResponseDto> get(
-            @PathVariable Long idCliente,
-            @PathVariable Long id) {
 
-        PedidoResponseDto pedido = pedidoService.get(id,idCliente);
-        return pedido != null ? ResponseEntity.ok(pedido) : ResponseEntity.notFound().build();
-    }
 
     /**
      * Obtener todos los pedidos de un cliente.
@@ -149,11 +145,11 @@ public class PedidoController {
             Authentication auth,
             @PathVariable Long idCliente,
             @PathVariable Long id,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
+            @RequestBody UpdatePedidoRequestDto request){
         var email = auth.getName();
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
         Long idVendedor = u.getId();
-        PedidoResponseDto pedido = pedidoService.update(id, idVendedor, idCliente, fecha);
+        PedidoResponseDto pedido = pedidoService.update(id, idVendedor, idCliente, request.getFecha(),  request.getDescuento(), request.getIva());
         return pedido != null ? ResponseEntity.ok(pedido) : ResponseEntity.notFound().build();
     }
 

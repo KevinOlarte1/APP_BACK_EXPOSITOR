@@ -76,6 +76,15 @@ public class ClienteController {
         return ResponseEntity.ok(clienteService.getAll(u.getId()));
     }
 
+    @GetMapping("/admin")
+    @Operation(summary = "Listar todos los clientes de un vendedor", description = "Listar todos los clientes de un vendedor")
+    @ApiResponse(responseCode = "200", description = "Lista de clientes encontrados")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<ClienteResponseDto>> getAll(
+    ) {
+        return ResponseEntity.ok(clienteService.getAll());
+    }
+
     /**
      * Listar todos los clientes de ese vendedor.
      * @param idVendedor identificador del vendedor

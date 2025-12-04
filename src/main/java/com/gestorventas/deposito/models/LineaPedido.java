@@ -1,5 +1,6 @@
 package com.gestorventas.deposito.models;
 
+import com.gestorventas.deposito.models.producto.Producto;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;

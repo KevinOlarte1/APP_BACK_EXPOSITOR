@@ -39,7 +39,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(auth);
             } catch (ExpiredJwtException ex) {
                 // Token caducado
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setStatus(HttpServletResponse.SC_MOVED_PERMANENTLY);
                 response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                 response.getWriter().write("{\"error\": \"El token de acceso ha expirado\"}");
                 return; // 🚫 Detenemos el filtro (no seguimos con la cadena)

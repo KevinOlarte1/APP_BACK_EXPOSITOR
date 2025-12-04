@@ -2,9 +2,7 @@ package com.gestorventas.deposito.controllers;
 
 import com.gestorventas.deposito.dto.in.VendedorDto;
 import com.gestorventas.deposito.dto.out.VendedorResponseDto;
-import com.gestorventas.deposito.enums.CategoriaProducto;
 import com.gestorventas.deposito.enums.Role;
-import com.gestorventas.deposito.interfaces.CategoriaCount;
 import com.gestorventas.deposito.interfaces.GastosCliente;
 import com.gestorventas.deposito.interfaces.ProductoCount;
 import com.gestorventas.deposito.models.Vendedor;
@@ -108,7 +106,7 @@ public class VendedorController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<VendedorResponseDto> update(
             @PathVariable long id,
-            @RequestBody VendedorDto dto
+                @RequestBody VendedorDto dto
     ) {
         VendedorResponseDto vendedor =  vendedorService.update(id, dto.getNombre(), dto.getApellido(), dto.getPassword(), dto.getEmail());
         if (vendedor == null)

@@ -25,11 +25,10 @@ public interface PedidoRepository extends JpaRepository<Pedido,Long>, JpaSpecifi
     @Query("""
            SELECT EXTRACT(YEAR FROM p.fecha), SUM(lp.precio * lp.cantidad)
            FROM Pedido p JOIN p.lineas lp
-           WHERE p.finalizado = true
            GROUP BY EXTRACT(YEAR FROM p.fecha)
            ORDER BY EXTRACT(YEAR FROM p.fecha)
            """)
-    List<Object[]> getEstadisticaGlobal();
+    List<Object[]> getEstadisticaGlobal(); // WHERE p.finalizado = true
 
     // Estadística por vendedor
     @Query("""
@@ -43,9 +42,9 @@ public interface PedidoRepository extends JpaRepository<Pedido,Long>, JpaSpecifi
 
     // Estadística por cliente
     @Query("""
-           SELECT EXTRACT(YEAR FROM p.fecha), SUM(lp.precio * lp.cantidad)
+           SELECT EXTRACT(YEAR FROM p.fecha), ROUND(SUM(lp.precio * lp.cantidad),2)
            FROM Pedido p JOIN p.lineas lp
-           WHERE p.finalizado = true AND p.cliente.id = :idCliente
+           WHERE p.finalizado = false AND p.cliente.id = :idCliente
            GROUP BY EXTRACT(YEAR FROM p.fecha)
            ORDER BY EXTRACT(YEAR FROM p.fecha)
            """)

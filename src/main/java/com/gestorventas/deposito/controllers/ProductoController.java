@@ -2,15 +2,12 @@ package com.gestorventas.deposito.controllers;
 
 import com.gestorventas.deposito.dto.in.ProductoDto;
 import com.gestorventas.deposito.dto.out.ProductoResponseDto;
-import com.gestorventas.deposito.enums.CategoriaProducto;
 import com.gestorventas.deposito.services.ProductoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.AllArgsConstructor;
-import lombok.Getter;
-import org.apache.coyote.Response;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -45,7 +42,7 @@ public class ProductoController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductoResponseDto> add(
             @RequestBody ProductoDto productoDto) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(productoService.add(productoDto.getDescripcion(), productoDto.getPrecio(), productoDto.getCategoria()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(productoService.add(productoDto.getDescripcion(), productoDto.getPrecio(), productoDto.getIdCategoria()));
     }
 
     /**
@@ -57,9 +54,9 @@ public class ProductoController {
     @Operation(summary = "Listar todos los productos", description = "Listar todos los productos")
     @ApiResponse(responseCode = "200", description = "Lista de productos encontrados")
     public ResponseEntity<List<ProductoResponseDto>> getAll(
-            @RequestParam(required = false)CategoriaProducto categoria
+            @RequestParam(required = false)Long categoriaId
             ) {
-        return ResponseEntity.ok(productoService.getAll(categoria));
+        return ResponseEntity.ok(productoService.getAll(categoriaId));
     }
 
     /**
