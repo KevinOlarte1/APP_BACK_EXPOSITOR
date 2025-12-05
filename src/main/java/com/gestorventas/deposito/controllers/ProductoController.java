@@ -8,7 +8,10 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.AllArgsConstructor;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -104,6 +107,20 @@ public class ProductoController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         productoService.remove(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/csv")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ByteArrayResource> exportClientesCsv() {
+
+        byte[] data = productoService.exportProductosCsv();
+        ByteArrayResource resource = new ByteArrayResource(data);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=clientes.csv")
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .contentLength(data.length)
+                .body(resource);
     }
 
 }
