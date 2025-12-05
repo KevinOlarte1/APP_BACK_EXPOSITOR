@@ -2,7 +2,6 @@ package com.gestorventas.deposito.controllers;
 
 import com.gestorventas.deposito.dto.in.ClienteDto;
 import com.gestorventas.deposito.dto.out.ClienteResponseDto;
-import com.gestorventas.deposito.models.Cliente;
 import com.gestorventas.deposito.models.Vendedor;
 import com.gestorventas.deposito.repositories.VendedorRepository;
 import com.gestorventas.deposito.services.ClienteService;
@@ -10,14 +9,17 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import jakarta.annotation.Resource;
 import lombok.AllArgsConstructor;
 
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 
 
 import java.util.List;
@@ -216,6 +218,23 @@ public class ClienteController {
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
         return ResponseEntity.ok(clienteService.getStats(idCliente, u.getId()));
     }
+
+
+
+    @GetMapping("/csv")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ByteArrayResource> exportClientesCsv() {
+
+        byte[] data = clienteService.exportClientesCsv();
+        ByteArrayResource resource = new ByteArrayResource(data);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=clientes.csv")
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .contentLength(data.length)
+                .body(resource);
+    }
+
 
 
 }

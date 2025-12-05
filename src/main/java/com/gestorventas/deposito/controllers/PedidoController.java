@@ -60,9 +60,17 @@ public class PedidoController {
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
         Integer descuento = porcentajes.get("descuento");
         Integer iva = porcentajes.get("iva");
-        if ( descuento == null || iva == null)
-            return ResponseEntity.badRequest().body("Los parametros de descuento y iva son obligatorios.");
         return ResponseEntity.status(HttpStatus.CREATED).body(pedidoService.add(idCliente, u.getId(), descuento, iva));
+    }
+
+    @PostMapping("/admin")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> addAdmin(
+            @PathVariable Long idCliente,
+            @RequestBody Map<String, Integer> porcentajes){
+        Integer descuento = porcentajes.get("descuento");
+        Integer iva = porcentajes.get("iva");
+        return  ResponseEntity.status(HttpStatus.CREATED).body(pedidoService.addAdmin(idCliente, descuento, iva));
     }
 
     /**
@@ -132,7 +140,6 @@ public class PedidoController {
      * Actualizar los datos de un pedido concreto.
      * @param idCliente identificador del cliente
      * @param id identificador numerico que se usara para buscar
-     * @param fecha fecha que se realizo el pedido actualizado
      * @return DTO con los datos del pedido actualizado.
      */
     @PutMapping("/{id}")
@@ -191,6 +198,9 @@ public class PedidoController {
             @PathVariable Long id){
         var email = auth.getName();
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
+        if(u.getRoles().contains(Role.ADMIN)){
+            return ResponseEntity.ok(pedidoService.cerrarPedido(idCliente,id));
+        }
         Long idVendedor = u.getId();
         return ResponseEntity.ok(pedidoService.cerrarPedido(idVendedor, idCliente, id));
     }

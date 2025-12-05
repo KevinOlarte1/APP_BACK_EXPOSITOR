@@ -7,10 +7,12 @@ import org.springframework.http.HttpStatus;
 public class PersonalException extends RuntimeException {
 
     private final ApiErrorCode errorCode;
+    private final String message;
 
-    public PersonalException(ApiErrorCode errorCode) {
+    public PersonalException(ApiErrorCode errorCode, String message) {
         super(errorCode.getMessage());
         this.errorCode = errorCode;
+        this.message = message;
     }
 
     public int getStatusCode() {

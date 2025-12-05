@@ -14,6 +14,7 @@ import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.GetMapping;
 
@@ -22,6 +23,7 @@ import java.io.IOException;
 import java.text.DecimalFormat;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Servicio encargado de gestionar la logica del negocio relacionado con los pedidos.
@@ -110,7 +112,12 @@ public class PedidoService {
      * @return Listado DTO con todos los pedidos.
      */
     public List<PedidoResponseDto> getAll(Long idVendedor, Long idCliente) {
-        return pedidoRepository.findAll(PedidoSpecifications.filter(idVendedor, idCliente)).stream()
+        Sort sort = Sort.by(
+                Sort.Order.asc("finalizado"),   // primero los abiertos
+                Sort.Order.desc("id")           // id de mayor a menor
+        );
+
+        return pedidoRepository.findAll(PedidoSpecifications.filter(idVendedor, idCliente), sort).stream()
                 .map(PedidoResponseDto::new)
                 .toList();
     }
@@ -123,30 +130,45 @@ public class PedidoService {
      * @return peiddo actualizado.
      * @throws RuntimeException referencia no existe.
      */
-    public PedidoResponseDto update(long id, long idVendedor, long idCliente, LocalDate fecha, int descuento, int iva) {
+    public PedidoResponseDto update(
+            long id,
+            long idVendedor,
+            long idCliente,
+            LocalDate fecha,
+            Integer descuento,
+            Integer iva
+    ) {
+
         Pedido pedido = pedidoRepository.findById(id);
+        if (pedido == null)
+            throw new RuntimeException("Pedido inexistente");
 
-        if(pedido==null)
-            return null;
+        if (pedido.getCliente().getId() != idCliente)
+            throw new RuntimeException("El pedido no pertenece al cliente");
 
-        if (pedido.getCliente().getId()!=idCliente)
-            return null;
+        if (pedido.getCliente().getVendedor().getId() != idVendedor)
+            throw new RuntimeException("No tienes permiso para modificar este pedido");
 
-        if(pedido.getCliente().getVendedor().getId()!=idVendedor)
-            return null;
-
-        if (fecha != null){
+        // Actualizar fecha si se envía
+        if (fecha != null) {
             pedido.setFecha(fecha);
         }
-        if (descuento > 0){
+
+        // Descuento puede ser 0, así que >= 0
+        if (descuento != null && descuento >= 0) {
             pedido.setDescuento(descuento);
         }
-        if (iva > 0){
+
+        // IVA puede ser 0, así que >= 0
+        if (iva != null && iva >= 0) {
             pedido.setIva(iva);
         }
+
         pedido = pedidoRepository.save(pedido);
+
         return new PedidoResponseDto(pedido);
     }
+
 
     /**
      * Borrar un pedido del sistema en cascada con sus relaciones
@@ -179,11 +201,11 @@ public class PedidoService {
         Vendedor vendedor = vendedorRepository.findById(idVendedor);
         if (vendedor == null)
             throw new RuntimeException("Vendedor inexistente");
-        Cliente cliente = vendedor.getClientes().stream().filter(c -> c.getId()==idCliente).findFirst().orElse(null);
-        if (cliente == null)
+        Cliente cliente= clienteRepository.findById(idCliente);
+        if (cliente == null || cliente.getVendedor().getId() != idVendedor)
             throw new RuntimeException("Cliente inexistente");
-        Pedido pedido = cliente.getPedidos().stream().filter(p -> p.getId()==idPedido).findFirst().orElse(null);
-        if (pedido == null)
+        Pedido pedido = pedidoRepository.findById(idPedido);
+        if (pedido == null || pedido.getCliente().getId() != idCliente)
             throw new RuntimeException("Pedido inexistente");
 
         pedido.setFinalizado(true);
@@ -197,6 +219,29 @@ public class PedidoService {
             System.out.println(e.getMessage());
         }
         return new PedidoResponseDto(pedido);
+    }
+
+    public PedidoResponseDto cerrarPedido(long idCliente, long idPedido) {
+        Cliente cliente= clienteRepository.findById(idCliente);
+        if (cliente == null)
+            throw new RuntimeException("Cliente inexistente");
+        Pedido pedido = pedidoRepository.findById(idPedido);
+        if (pedido == null || pedido.getCliente().getId() != idCliente)
+            throw new RuntimeException("Pedido inexistente");
+
+        pedido.setFinalizado(true);
+
+        pedido = pedidoRepository.save(pedido);
+        /*
+        try{
+            mailService.enviarCorreoPedido(cliente.getVendedor().getEmail(), pedido);
+            //mailService.enviarCorreoPedido(cliente.getEmail(), pedido);
+        } catch (Exception e){
+            System.out.println(e.getMessage());
+        } */
+        return new PedidoResponseDto(pedido);
+
+
     }
 
     /**
@@ -271,6 +316,21 @@ public class PedidoService {
     }
 
 
+    /**
+     * Crear un pedido administrador.
+     * @param idCliente identificador del cliente
+     * @param descuento parametro de descuento del pedido
+     * @param iva impuseto aplicado al pedido
+     * @return DTO con los datos del pedido creado.
+     */
+    public PedidoResponseDto addAdmin(Long idCliente, Integer descuento, Integer iva) {
+        Optional<Cliente> cliente = clienteRepository.findById(idCliente);
+        if (cliente.isEmpty())
+            throw new RuntimeException("Cliente inexistente");
+        Pedido pedido = new Pedido(descuento, iva);
+        pedido.setCliente(cliente.get());
 
-
+        pedido = pedidoRepository.save(pedido);
+        return new PedidoResponseDto(pedido);
+    }
 }

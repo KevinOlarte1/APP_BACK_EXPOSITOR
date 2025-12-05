@@ -11,6 +11,7 @@ import io.swagger.v3.oas.models.links.Link;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -178,5 +179,24 @@ public class ClienteService {
             total.put(year, totalPedido);
         }
         return total;
+    }
+
+    public byte[] exportClientesCsv() {
+
+        StringBuilder csv = new StringBuilder();
+        csv.append("ID;Nombre;CIF;Vendedor\n");
+
+        List<Cliente> clientes = clienteRepository.findAll();
+
+        for (Cliente c : clientes) {
+            csv.append(c.getId()).append(";")
+                    .append(c.getNombre()).append(";")
+                    .append(c.getCif()).append(";")
+                    .append(c.getVendedor().getNombre())
+                    .append("\n");
+        }
+
+        // UTF-8 BOM para Excel (opcional)
+        return ("\uFEFF" + csv).getBytes(StandardCharsets.UTF_8);
     }
 }

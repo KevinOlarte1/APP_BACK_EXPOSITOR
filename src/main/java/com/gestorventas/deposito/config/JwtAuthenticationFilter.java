@@ -1,5 +1,6 @@
 package com.gestorventas.deposito.config;
 
+import com.gestorventas.deposito.config.exceptions.ApiErrorCode;
 import com.gestorventas.deposito.services.CustomUserDetailsService;
 import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
@@ -39,13 +40,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(auth);
             } catch (ExpiredJwtException ex) {
                 // Token caducado
-                response.setStatus(HttpServletResponse.SC_MOVED_PERMANENTLY);
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                 response.getWriter().write("{\"error\": \"El token de acceso ha expirado\"}");
                 return; // 🚫 Detenemos el filtro (no seguimos con la cadena)
             } catch (Exception ex) {
                 // Token inválido o manipulado
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED  );
                 response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                 response.getWriter().write("{\"error\": \"Token inválido o no autorizado\"}");
                 return;

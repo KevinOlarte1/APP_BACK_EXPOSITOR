@@ -12,6 +12,7 @@ import com.gestorventas.deposito.specifications.ProductosSpecifications;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -146,5 +147,23 @@ public class ProductoService {
 
 
         return resultado;
+    }
+
+    public byte[] exportProductosCsv() {
+
+        StringBuilder csv = new StringBuilder();
+        csv.append("ID;Nombre;Precio;Categoria\n");
+
+        List<Producto> productos = productoRepository.findAll();
+
+        for (Producto p : productos) {
+            csv.append(p.getId()).append(";")
+                    .append(p.getDescripcion()).append(";")
+                    .append(p.getPrecio()).append(";")
+                    .append(p.getCategoria() != null ? p.getCategoria().getNombre() : "")
+                    .append("\n");
+        }
+
+        return ("\uFEFF" + csv).getBytes(StandardCharsets.UTF_8);
     }
 }

@@ -34,7 +34,7 @@ public class LineaPedidoService {
      */
     public LineaPedidoResponseDto add(long idVendedor, long idCliente, long idPedido,
                                       long idProducto, int cantidad, Double precio) {
-        System.out.println("Entradno al crear service ");
+        //System.out.println("Entradno al crear service ");
         // Validar existencia de vendedor
         Vendedor vendedor = vendedorRepository.findById(idVendedor);
         if (vendedor == null)
