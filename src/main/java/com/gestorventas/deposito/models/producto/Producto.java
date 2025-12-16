@@ -35,13 +35,31 @@ public class Producto {
     @JoinColumn(name = "fk_categoria")
     private Categoria categoria;
 
+    private boolean activo;
 
 
-    public Producto() {}
+
+    public Producto() {this.activo = true;}
 
     public Producto(String descripcion, Double precio, Categoria categoria) {
         this.descripcion = descripcion;
         this.precio = precio;
         this.categoria = categoria;
+        this.activo = true;
+
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Producto: ");
+        sb.append(this.getDescripcion());
+        sb.append("\nPrecio: ");
+        sb.append(this.getPrecio());
+        sb.append("\n");
+        sb.append(this.activo);
+        sb.append("\n");
+        sb.append(this.getId());
+        return sb.toString();
     }
 }

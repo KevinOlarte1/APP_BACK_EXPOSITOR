@@ -1,11 +1,19 @@
 package com.gestorventas.deposito.services;
 
 import com.gestorventas.deposito.dto.out.CategoriaResponseDto;
+import com.gestorventas.deposito.models.Cliente;
+import com.gestorventas.deposito.models.Pedido;
+import com.gestorventas.deposito.models.Vendedor;
 import com.gestorventas.deposito.models.producto.Categoria;
 import com.gestorventas.deposito.repositories.CategoriaRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @Service
@@ -79,5 +87,46 @@ public class CategoriaService {
         if (categoria == null)
             throw new IllegalArgumentException("La categoria no existe");
         categoriaRepository.delete(categoria);
+    }
+
+    public int importarCsvCategorias(MultipartFile file) throws IOException {
+        int insertados = 0;
+
+        try (BufferedReader br = new BufferedReader(
+                new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
+
+            // Leer cabecera
+            br.readLine();
+
+            String linea;
+
+            while ((linea = br.readLine()) != null) {
+
+                String[] campos = linea.split(";");
+                if (campos.length < 2) continue;
+
+                String nombre = campos[1].trim().toUpperCase();
+
+                Categoria categoria = categoriaRepository.findByNombre(nombre);
+
+                if (categoria != null) continue;
+                categoria = new Categoria();
+                categoria.setNombre(nombre);
+                categoriaRepository.save(categoria);
+                insertados++;
+            }
+        }
+
+        return insertados;
+    }
+
+    public byte[] exportCategoriasCsv() {
+        StringBuilder csv = new StringBuilder();
+        csv.append("ID;NOMBRE\n");
+        List<Categoria> categorias = categoriaRepository.findAll();
+        for (Categoria categoria : categorias) {
+            csv.append(categoria.getId()).append(";").append(categoria.getNombre()).append("\n");
+        }
+        return ("\uFEFF" + csv).getBytes(StandardCharsets.UTF_8);
     }
 }

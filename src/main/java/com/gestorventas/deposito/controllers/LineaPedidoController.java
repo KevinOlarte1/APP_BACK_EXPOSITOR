@@ -2,6 +2,7 @@ package com.gestorventas.deposito.controllers;
 
 import com.gestorventas.deposito.dto.in.LineaPedidoDto;
 import com.gestorventas.deposito.dto.out.LineaPedidoResponseDto;
+import com.gestorventas.deposito.enums.Role;
 import com.gestorventas.deposito.models.Vendedor;
 import com.gestorventas.deposito.repositories.VendedorRepository;
 import com.gestorventas.deposito.services.LineaPedidoService;
@@ -47,7 +48,9 @@ public class LineaPedidoController {
         var email = auth.getName();
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
         Long idVendedor = u.getId();
-        return ResponseEntity.status(HttpStatus.CREATED).body(lineaPedidoService.add(idVendedor, idCliente, idPedido, lineaDto.getIdProducto(), lineaDto.getCantidad(), lineaDto.getPrecio()));
+        System.out.println("Entra en este metodo");
+        System.out.println("idVendedor: " + idVendedor + " idCliente: " + idCliente + " idPedido: " + idPedido + " idProducto: " + lineaDto.getIdProducto() + " cantidad: " + lineaDto.getCantidad() + " precio: " + lineaDto.getPrecio() + " grupo: " + lineaDto.getGrupo() + "");
+        return ResponseEntity.status(HttpStatus.CREATED).body(lineaPedidoService.add(idVendedor, idCliente, idPedido, lineaDto.getIdProducto(), lineaDto.getCantidad(), lineaDto.getPrecio(), lineaDto.getGrupo()));
     }
 
     /**
@@ -118,6 +121,9 @@ public class LineaPedidoController {
             @PathVariable Long idPedido){
         var email = auth.getName();
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
+        if(u.getRoles().contains(Role.ADMIN)){
+            return ResponseEntity.ok(lineaPedidoService.get(null,idPedido,null,idCliente));
+        }
         Long idVendedor = u.getId();
         return ResponseEntity.ok(lineaPedidoService.get(null,idPedido,idVendedor,idCliente));
     }

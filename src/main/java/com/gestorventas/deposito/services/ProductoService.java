@@ -11,7 +11,11 @@ import com.gestorventas.deposito.repositories.VendedorRepository;
 import com.gestorventas.deposito.specifications.ProductosSpecifications;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -60,6 +64,7 @@ public class ProductoService {
                 .categoria(categoria)
                 .descripcion(descripcion)
                 .precio(precio)
+                .activo(true)
                 .build();
         producto = productoRepository.save(producto);
         return new ProductoResponseDto(producto);
@@ -98,7 +103,13 @@ public class ProductoService {
      * @param id identificador numerico que se usara para buscar
      */
     public void remove(Long id) {
-        productoRepository.deleteById(id);
+        Producto producto = productoRepository.findById((long) id);
+        if (producto == null) {
+            return;
+        }
+        producto.setActivo(false);
+        productoRepository.save(producto);
+
     }
 
     public ProductoResponseDto update(Long id, ProductoDto productoDto) {
@@ -107,6 +118,9 @@ public class ProductoService {
         }
         Producto producto = productoRepository.findById((long)id);
         if (producto == null) {
+            return null;
+        }
+        if (!producto.isActivo()) {
             return null;
         }
         if (productoDto.getDescripcion() != null) {
@@ -154,7 +168,7 @@ public class ProductoService {
         StringBuilder csv = new StringBuilder();
         csv.append("ID;Nombre;Precio;Categoria\n");
 
-        List<Producto> productos = productoRepository.findAll();
+        List<Producto> productos = productoRepository.findAllByActivo(true);
 
         for (Producto p : productos) {
             csv.append(p.getId()).append(";")
@@ -165,5 +179,53 @@ public class ProductoService {
         }
 
         return ("\uFEFF" + csv).getBytes(StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Exporta a la base de datos productos a partir de un archivo CSV.
+     * @param file fichero csv con los productos.
+     * @return numero de productos insertados.
+     * @throws IOException problemas con la lectura del fichero.
+     */
+    public int importarCsvProductos(MultipartFile file) throws IOException {
+        int insertados = 0;
+        System.out.println("Entra");
+
+        try (BufferedReader br = new BufferedReader(
+                new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
+
+            String header = br.readLine();
+            String linea;
+
+            while ((linea = br.readLine()) != null){
+                System.out.println(linea);
+                String[] campos = linea.split(";");
+
+                if (campos.length < 4) continue;
+
+                // --- PARSEO ---
+                String idStr = campos[0].trim();
+                String nombre = campos[1].trim();
+                String precioStr = campos[2].trim();
+                String categoria = campos[3].trim();
+
+                double precio;
+
+                try {
+                    precio = Double.parseDouble(precioStr.replace(",", "."));
+                } catch (NumberFormatException e) {
+                    // si hay error de formato, saltamos la fila
+                    continue;
+                }
+                Producto producto = Producto.builder()
+                        .descripcion(nombre)
+                        .precio(precio)
+                        .categoria(categoriaRepository.findByNombre(categoria))
+                        .build();
+                productoRepository.save(producto);
+                insertados++;
+            }
+        }
+        return insertados;
     }
 }

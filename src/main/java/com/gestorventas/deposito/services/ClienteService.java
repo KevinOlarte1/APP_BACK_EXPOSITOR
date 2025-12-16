@@ -10,7 +10,11 @@ import com.gestorventas.deposito.specifications.ClienteSpecifications;
 import io.swagger.v3.oas.models.links.Link;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -192,11 +196,65 @@ public class ClienteService {
             csv.append(c.getId()).append(";")
                     .append(c.getNombre()).append(";")
                     .append(c.getCif()).append(";")
-                    .append(c.getVendedor().getNombre())
+                    .append(c.getVendedor().getEmail())
                     .append("\n");
         }
 
         // UTF-8 BOM para Excel (opcional)
         return ("\uFEFF" + csv).getBytes(StandardCharsets.UTF_8);
     }
+
+    public int importarCsvClientes(MultipartFile file) throws Exception {
+
+        int insertados = 0;
+
+        try (BufferedReader br = new BufferedReader(
+                new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
+
+            // Leer cabecera
+            br.readLine();
+
+            String linea;
+
+            while ((linea = br.readLine()) != null) {
+
+                String[] campos = linea.split(";");
+                if (campos.length < 4) continue;
+
+                String nombre = campos[1].trim();
+                String cif = campos[2].trim();
+                String vendedorEmail = campos[3].trim();
+
+                // Buscar vendedor por email
+                Vendedor vendedor = vendedorRepository.findByEmail(vendedorEmail)
+                        .orElse(null);
+
+                if (vendedor == null) {
+                    System.out.println("⚠️ No existe vendedor con email: " + vendedorEmail + " — Cliente ignorado.");
+                    continue; // No insertamos clientes sin vendedor válido
+                }
+
+                // 2️⃣ Comprobar SI YA EXISTE el CIF
+                boolean existe = clienteRepository.findByCif(cif).isPresent();
+
+                if (existe) {
+                    System.out.println("⚠️ CIF duplicado: " + cif + " — Cliente ignorado.");
+                    continue;
+                }
+
+
+                Cliente cliente = new Cliente();
+                cliente.setNombre(nombre);
+                cliente.setCif(cif);
+                cliente.setVendedor(vendedor);
+
+                clienteRepository.save(cliente);
+                insertados++;
+            }
+        }
+
+        return insertados;
+    }
+
+
 }

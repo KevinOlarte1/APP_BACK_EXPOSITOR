@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 /**
  * Repositorio para acceder y gestionar entidades {@link producto}
  * <p>
@@ -25,9 +27,11 @@ public interface ProductoRepository extends JpaRepository<Producto, Long>, JpaSp
     JOIN p.cliente c
     WHERE c.vendedor.id = :idVendedor
       AND lp.producto.categoria.id = :categoria
+      AND lp.producto.activo = true
 """)
     Long findVentasPorCategoria(Long idVendedor, Long categoria);
 
 
+    List<Producto> findAllByActivo(boolean activo);
 
 }

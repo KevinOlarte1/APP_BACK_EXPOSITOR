@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Repositorio para acceder y gestionar entidades {@link Cliente}
@@ -38,4 +39,6 @@ public interface ClienteRepository extends JpaRepository<Cliente,Long>, JpaSpeci
         
 """)
     List<GastosCliente> getGastosClientesByVendedor(long idVendedor);
+
+    Optional<Object> findByCif(String cif);
 }

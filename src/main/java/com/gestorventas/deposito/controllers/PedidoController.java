@@ -54,23 +54,17 @@ public class PedidoController {
     })
     public ResponseEntity<?> add(
             Authentication auth,
-            @PathVariable Long idCliente,
-            @RequestBody Map<String, Integer> porcentajes) {
+            @PathVariable Long idCliente) {
         var email = auth.getName();
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
-        Integer descuento = porcentajes.get("descuento");
-        Integer iva = porcentajes.get("iva");
-        return ResponseEntity.status(HttpStatus.CREATED).body(pedidoService.add(idCliente, u.getId(), descuento, iva));
+        return ResponseEntity.status(HttpStatus.CREATED).body(pedidoService.add(idCliente, u.getId()));
     }
 
     @PostMapping("/admin")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> addAdmin(
-            @PathVariable Long idCliente,
-            @RequestBody Map<String, Integer> porcentajes){
-        Integer descuento = porcentajes.get("descuento");
-        Integer iva = porcentajes.get("iva");
-        return  ResponseEntity.status(HttpStatus.CREATED).body(pedidoService.addAdmin(idCliente, descuento, iva));
+            @PathVariable Long idCliente){
+        return  ResponseEntity.status(HttpStatus.CREATED).body(pedidoService.addAdmin(idCliente));
     }
 
     /**

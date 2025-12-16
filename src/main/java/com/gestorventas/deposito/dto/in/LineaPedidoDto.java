@@ -16,4 +16,5 @@ public class LineaPedidoDto {
     private Long idProducto;
     private Integer cantidad;
     private Double precio;
+    private Integer grupo;
 }

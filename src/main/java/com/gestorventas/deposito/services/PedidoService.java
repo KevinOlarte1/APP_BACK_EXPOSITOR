@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
 import java.time.LocalDate;
 import java.util.List;
@@ -40,6 +41,7 @@ public class PedidoService {
     private PedidoRepository pedidoRepository;
     private VendedorRepository vendedorRepository;
     private ClienteRepository clienteRepository;
+    private ParametrosGlobalesService paramService;
 
     private final DecimalFormat df = new DecimalFormat("#.00");
 
@@ -47,20 +49,40 @@ public class PedidoService {
      * Guardar un nuevo pedido en el sistema.
      * @param idCliente identificador a quien se le va retribuir el peiddo.
      * @param idVendedor identificador del vendedor que realizo el pedido.
-     * @param descuento porcentaje de descuento aplicado al pedido.
-     * @param iva porcentaje de iva aplicado al pedido.
      * @return DTO con los datos guardados visibles.
      * @throws RuntimeException entidades inexistentes.
      */
-    public PedidoResponseDto add( long idCliente, long idVendedor, int descuento, int iva) {
+    public PedidoResponseDto add( long idCliente, long idVendedor) {
         Cliente cliente = clienteRepository.findById(idCliente);
         if(cliente==null)
             throw new RuntimeException("Cliente inexistente");
         if (cliente.getVendedor().getId()!=idVendedor)
             throw new RuntimeException("Cliente inexistente");
 
+        int iva = paramService.getIva() == null ? 0 : paramService.getIva();
+        int descuento = paramService.getDescuento()  == null ? 0 : paramService.getDescuento();
         Pedido pedido = new Pedido(descuento, iva);
         pedido.setCliente(cliente);
+
+        pedido = pedidoRepository.save(pedido);
+        return new PedidoResponseDto(pedido);
+    }
+
+    /**
+     * Crear un pedido administrador.
+     * @param idCliente identificador del cliente
+     * @return DTO con los datos del pedido creado.
+     */
+    public PedidoResponseDto addAdmin(Long idCliente) {
+        Optional<Cliente> cliente = clienteRepository.findById(idCliente);
+        if (cliente.isEmpty())
+            throw new RuntimeException("Cliente inexistente");
+
+        int iva = paramService.getIva() == null ? 0 : paramService.getIva();
+        int descuento = paramService.getDescuento()  == null ? 0 : paramService.getDescuento();
+
+        Pedido pedido = new Pedido(descuento, iva);
+        pedido.setCliente(cliente.get());
 
         pedido = pedidoRepository.save(pedido);
         return new PedidoResponseDto(pedido);
@@ -316,21 +338,23 @@ public class PedidoService {
     }
 
 
-    /**
-     * Crear un pedido administrador.
-     * @param idCliente identificador del cliente
-     * @param descuento parametro de descuento del pedido
-     * @param iva impuseto aplicado al pedido
-     * @return DTO con los datos del pedido creado.
-     */
-    public PedidoResponseDto addAdmin(Long idCliente, Integer descuento, Integer iva) {
-        Optional<Cliente> cliente = clienteRepository.findById(idCliente);
-        if (cliente.isEmpty())
-            throw new RuntimeException("Cliente inexistente");
-        Pedido pedido = new Pedido(descuento, iva);
-        pedido.setCliente(cliente.get());
 
-        pedido = pedidoRepository.save(pedido);
-        return new PedidoResponseDto(pedido);
+
+    public byte[] exportPedidosCsv() {
+        StringBuilder csv = new StringBuilder();
+        csv.append("ID;FECHA;IDPRODUCTO;UNIDADES;PVP\n");
+        List<Pedido> pedidos = pedidoRepository.findAll();
+
+        for (Pedido pedido : pedidos) {
+            for (LineaPedido linea : pedido.getLineas()) {
+                csv.append(pedido.getId()).append(";")
+                        .append(pedido.getFecha()).append(";")
+                        .append(linea.getProducto().getId()).append(";")
+                        .append(linea.getCantidad()).append(";")
+                        .append(linea.getPrecio()).append("\n");
+            }
+        }
+        return ("\uFEFF" + csv).getBytes(StandardCharsets.UTF_8);
+
     }
 }

@@ -28,14 +28,15 @@ public class LineaPedidoService {
     private final ClienteRepository clienteRepository;
     private final PedidoRepository pedidoRepository;
     private final ProductoRepository productoRepository;
+    private final ParametrosGlobalesService paramService;
 
     /**
      * Guardar una nueva línea de pedido en el sistema.
      */
     public LineaPedidoResponseDto add(long idVendedor, long idCliente, long idPedido,
-                                      long idProducto, int cantidad, Double precio) {
-        //System.out.println("Entradno al crear service ");
+                                      long idProducto, int cantidad, Double precio, Integer grupo) {
         // Validar existencia de vendedor
+
         Vendedor vendedor = vendedorRepository.findById(idVendedor);
         if (vendedor == null)
             throw new RuntimeException("Vendedor inexistente");
@@ -44,7 +45,7 @@ public class LineaPedidoService {
         Cliente cliente = clienteRepository.findById(idCliente);
         if (cliente == null)
             throw new RuntimeException("Cliente inexistente");
-        if (cliente.getVendedor() == null || cliente.getVendedor().getId() != idVendedor)
+        if (cliente.getVendedor().getId() != idVendedor)
             throw new RuntimeException("El cliente no pertenece al vendedor indicado");
 
         // Obtener pedido directo desde repositorio
@@ -63,6 +64,11 @@ public class LineaPedidoService {
         if (producto == null)
             throw new RuntimeException("Producto inexistente");
 
+
+        if (!producto.isActivo()){
+            throw new IllegalArgumentException("Este producto esta desactivado");
+        }
+
         // Validar cantidad y precio
         if (cantidad <= 0)
             throw new IllegalArgumentException("La cantidad debe ser mayor a 0");
@@ -71,12 +77,20 @@ public class LineaPedidoService {
         else if (precio < 0)
             throw new IllegalArgumentException("El precio debe ser mayor o igual a 0");
 
+        //Validar grupo dentro del rango
+        Integer grupoMax = paramService.getGrupoMax();
+        if (grupo != null)
+            if (grupoMax != null &&  grupo > grupoMax)
+                throw new RuntimeException("Grupo invalido");
+
         // Crear y guardar la línea
         LineaPedido linea = new LineaPedido();
         linea.setPedido(pedido);
         linea.setProducto(producto);
         linea.setCantidad(cantidad);
         linea.setPrecio(precio);
+        if (grupo != null)
+            linea.setGrupo(grupo);
 
         BigDecimal bdCantidad = BigDecimal.valueOf(cantidad);
         BigDecimal bdPrecio = BigDecimal.valueOf(precio);

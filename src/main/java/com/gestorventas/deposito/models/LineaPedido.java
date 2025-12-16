@@ -41,6 +41,10 @@ public class LineaPedido {
     @Column(nullable = false)
     private Double precio;
 
+    /**Grupo perteneciente */
+    @Column(nullable = true)
+    private Integer grupo;
+
     public LineaPedido() {}
 
 }

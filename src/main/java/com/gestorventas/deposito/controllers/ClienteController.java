@@ -221,19 +221,7 @@ public class ClienteController {
 
 
 
-    @GetMapping("/csv")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ByteArrayResource> exportClientesCsv() {
 
-        byte[] data = clienteService.exportClientesCsv();
-        ByteArrayResource resource = new ByteArrayResource(data);
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=clientes.csv")
-                .contentType(MediaType.parseMediaType("text/csv"))
-                .contentLength(data.length)
-                .body(resource);
-    }
 
 
 

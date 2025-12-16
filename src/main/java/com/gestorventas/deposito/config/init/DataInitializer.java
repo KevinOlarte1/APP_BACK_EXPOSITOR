@@ -6,6 +6,7 @@ import com.gestorventas.deposito.models.producto.Categoria;
 import com.gestorventas.deposito.models.producto.Producto;
 import com.gestorventas.deposito.repositories.*;
 import com.gestorventas.deposito.services.LineaPedidoService;
+import com.gestorventas.deposito.services.ParametrosGlobalesService;
 import com.gestorventas.deposito.services.PedidoService;
 import com.gestorventas.deposito.services.VendedorService;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,7 @@ public class DataInitializer implements CommandLineRunner {
     private final CategoriaRepository categoriaRepository;
     private final PedidoService pedidoService;
     private final LineaPedidoService lineaPedidoService;
+    private final ParametrosGlobalesService paramService;
 
     @Value("${app.admin.email}")
     private String adminEmail;
@@ -52,6 +54,7 @@ public class DataInitializer implements CommandLineRunner {
             System.out.println("Admin creado: " + adminEmail);
             System.out.println("Admin creado: " + "gcholbi@gmail.com");
         }
+        paramService.set(21,10, 4);
         CIF_usados = new ArrayList<>();
         createCategorias();
         randomProducts(100);
@@ -87,7 +90,7 @@ public class DataInitializer implements CommandLineRunner {
         liena.setProducto(producto);
         liena.setPrecio(producto.getPrecio());
         liena.setCantidad(random.nextInt(1,20));
-        lineaPedidoService.add(pedido.getCliente().getVendedor().getId(), pedido.getCliente().getId(), pedido.getId(), producto.getId(), liena.getCantidad(), liena.getPrecio());
+        lineaPedidoService.add(pedido.getCliente().getVendedor().getId(), pedido.getCliente().getId(), pedido.getId(), producto.getId(), liena.getCantidad(), liena.getPrecio(), null);
 
     }
 
@@ -102,7 +105,7 @@ public class DataInitializer implements CommandLineRunner {
     private void createPedido(Cliente cliente) {
         Pedido pedido = new Pedido();
         pedido.setCliente(cliente);
-        pedidoService.add(cliente.getId(),cliente.getVendedor().getId(), 10, 21);
+        pedidoService.add(cliente.getId(),cliente.getVendedor().getId());
     }
 
     private void randomClientes(int cantidad) {
@@ -169,6 +172,8 @@ public class DataInitializer implements CommandLineRunner {
                 .descripcion(name)
                 .precio(price)
                 .categoria(categoriaProducto)
+                .activo(true)
                 .build());
+
     }
 }

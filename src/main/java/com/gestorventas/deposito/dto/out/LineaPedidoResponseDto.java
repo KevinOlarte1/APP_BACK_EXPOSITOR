@@ -21,6 +21,7 @@ public class LineaPedidoResponseDto {
     private Long idProducto;
     private Integer cantidad;
     private Double precio;
+    private Integer grupo;
 
     public LineaPedidoResponseDto(LineaPedido lineaPedido) {
         this.id = lineaPedido.getId();
@@ -28,5 +29,6 @@ public class LineaPedidoResponseDto {
         this.idProducto = lineaPedido.getProducto().getId();
         this.cantidad = lineaPedido.getCantidad();
         this.precio = lineaPedido.getPrecio();
+        this.grupo = lineaPedido.getGrupo();
     }
 }

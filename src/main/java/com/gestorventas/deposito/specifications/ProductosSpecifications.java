@@ -10,6 +10,7 @@ public class ProductosSpecifications {
         return (root, query, cb) ->{
             var predicate = cb.conjunction();
 
+            predicate = cb.and(predicate, cb.equal(root.get("activo"), true));
             if (idCategoria != null) {
                 predicate = cb.and(
                         predicate,
