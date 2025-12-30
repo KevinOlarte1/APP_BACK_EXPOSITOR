@@ -39,22 +39,16 @@ public class CorsConfig {
         CorsConfiguration config = new CorsConfiguration();
 
         List<String> origins = Arrays.stream(allowedOrigins.split(","))
-                .map(String::trim).filter(s -> !s.isEmpty()).toList();
-        config.setAllowedOrigins(origins);
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+
+        // 👇 CLAVE para Flutter Web
+        config.setAllowedOriginPatterns(origins);
 
         config.setAllowedMethods(Arrays.stream(allowedMethods.split(",")).map(String::trim).toList());
-
-        if ("*".equals(allowedHeaders.trim())) {
-            config.addAllowedHeader("*");
-        } else {
-            config.setAllowedHeaders(Arrays.stream(allowedHeaders.split(",")).map(String::trim).toList());
-        }
-
-        if (exposedHeaders != null && !exposedHeaders.trim().isEmpty()) {
-            config.setExposedHeaders(Arrays.stream(exposedHeaders.split(",")).map(String::trim).toList());
-        }
-
-        config.setAllowCredentials(allowCredentials);
+        config.addAllowedHeader("*");
+        config.setAllowCredentials(false);
         config.setMaxAge(maxAge);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -62,17 +56,6 @@ public class CorsConfig {
         return new CorsFilter(source);
     }
 
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(Arrays.stream(allowedOrigins.split(",")).map(String::trim).toList());
-        config.setAllowedMethods(Arrays.asList("GET","POST","PUT","DELETE","OPTIONS"));
-        config.setAllowedHeaders(Arrays.asList("*"));
-        config.setAllowCredentials(false); // ✅ recomendado si usas JWT en header
-        config.setMaxAge(3600L);
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-        return source;
-    }
+
 }
