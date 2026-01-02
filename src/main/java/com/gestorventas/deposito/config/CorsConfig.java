@@ -32,10 +32,8 @@ public class CorsConfig {
     @Value("${app.cors.max-age:3600}")
     private long maxAge;
 
-
-
     @Bean
-    public CorsFilter corsFilter() {
+    public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
         List<String> origins = Arrays.stream(allowedOrigins.split(","))
@@ -43,19 +41,15 @@ public class CorsConfig {
                 .filter(s -> !s.isEmpty())
                 .toList();
 
-        // 👇 CLAVE para Flutter Web
         config.setAllowedOriginPatterns(origins);
-
         config.setAllowedMethods(Arrays.stream(allowedMethods.split(",")).map(String::trim).toList());
         config.addAllowedHeader("*");
-        config.setAllowCredentials(false);
+        config.setAllowCredentials(allowCredentials);
         config.setMaxAge(maxAge);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
-        return new CorsFilter(source);
+        return source;
     }
-
-
 
 }

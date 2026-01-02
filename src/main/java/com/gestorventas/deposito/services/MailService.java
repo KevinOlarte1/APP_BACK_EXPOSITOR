@@ -14,7 +14,7 @@ import java.text.DecimalFormat;
 import java.util.regex.Pattern;
 
 @Service
-public class MailService {
+public class    MailService {
 
     @Autowired
     private JavaMailSender mailSender;
