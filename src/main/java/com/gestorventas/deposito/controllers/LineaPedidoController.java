@@ -50,6 +50,9 @@ public class LineaPedidoController {
         Long idVendedor = u.getId();
         System.out.println("Entra en este metodo");
         System.out.println("idVendedor: " + idVendedor + " idCliente: " + idCliente + " idPedido: " + idPedido + " idProducto: " + lineaDto.getIdProducto() + " cantidad: " + lineaDto.getCantidad() + " precio: " + lineaDto.getPrecio() + " grupo: " + lineaDto.getGrupo() + "");
+        if (u.getRoles().contains(Role.ADMIN)){
+            return ResponseEntity.status(HttpStatus.CREATED).body(lineaPedidoService.add(idCliente, idPedido, lineaDto.getIdProducto(), lineaDto.getCantidad(), lineaDto.getPrecio(), lineaDto.getGrupo()));
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(lineaPedidoService.add(idVendedor, idCliente, idPedido, lineaDto.getIdProducto(), lineaDto.getCantidad(), lineaDto.getPrecio(), lineaDto.getGrupo()));
     }
 

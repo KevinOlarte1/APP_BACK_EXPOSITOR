@@ -107,6 +107,67 @@ public class LineaPedidoService {
 
         return new LineaPedidoResponseDto(saved);
     }
+    public LineaPedidoResponseDto add(long idCliente, long idPedido, long idProducto,
+                                      int cantidad, Double precio, Integer grupo) {
+        Cliente cliente = clienteRepository.findById(idCliente);
+        if (cliente == null)
+            throw new RuntimeException("Cliente inexistente");
+        Pedido pedido = pedidoRepository.findById(idPedido);
+        if (pedido == null)
+            throw new RuntimeException("Pedido inexistente");
+        else if (pedido.getCliente().getId() != idCliente)
+            throw new RuntimeException("El pedido no pertenece al cliente indicado");
+
+        if (pedido.isFinalizado())
+            throw new RuntimeException("El pedido ya está finalizado");
+
+
+        Producto producto = productoRepository.findById(idProducto);
+        if (producto == null)
+            throw new RuntimeException("Producto inexistente");
+
+        if (!producto.isActivo()){
+            throw new IllegalArgumentException("Este producto esta desactivado");
+        }
+
+        // Validar cantidad y precio
+        if (cantidad <= 0)
+            throw new IllegalArgumentException("La cantidad debe ser mayor a 0");
+        if (precio == null)
+            precio = producto.getPrecio();
+        else if (precio < 0)
+            throw new IllegalArgumentException("El precio debe ser mayor o igual a 0");
+
+        //Validar grupo dentro del rango
+        Integer grupoMax = paramService.getGrupoMax();
+        if (grupo != null)
+            if (grupoMax != null &&  grupo > grupoMax)
+                throw new RuntimeException("Grupo invalido");
+
+        LineaPedido linea = new LineaPedido();
+
+        linea.setPedido(pedido);
+        linea.setProducto(producto);
+        linea.setCantidad(cantidad);
+        linea.setPrecio(precio);
+        if (grupo != null)
+            linea.setGrupo(grupo);
+
+        BigDecimal bdCantidad = BigDecimal.valueOf(cantidad);
+        BigDecimal bdPrecio = BigDecimal.valueOf(precio);
+        BigDecimal subtotal = bdCantidad.multiply(bdPrecio);
+
+        // Guardar forzando sincronización del contexto
+        LineaPedido saved = lineaPedidoRepository.saveAndFlush(linea);
+
+        pedido.setBrutoTotal(
+                pedido.getBrutoTotal().add(subtotal)
+        );
+
+        pedidoRepository.save(pedido);
+
+        return new LineaPedidoResponseDto(saved);
+    }
 
 
     /**
