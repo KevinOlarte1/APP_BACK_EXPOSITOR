@@ -16,10 +16,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.time.LocalDate;
+import java.util.*;
 
 /**
  * Servicio encargado de gestionar la logica del negocio relacionado con los clientes.
@@ -161,11 +159,20 @@ public class ClienteService {
      */
     public Map<String, Double> getStats(Long idCliente) {
         Map<String,Double> total = new LinkedHashMap<>();
-        for (Object[] row: pedidoRepository.getEstadisticaPorCliente(idCliente)){
-            String year = String.valueOf(((Number) row[0]).intValue());
-            Double totalPedido = ((Number) row[1]).doubleValue();
-            total.put(year, totalPedido);
+        List<Object[]> pedidos = pedidoRepository.getEstadisticaPorCliente(idCliente);
+        if (pedidos.isEmpty()){
+            total.put(String.valueOf(LocalDate.now().getYear()),0.0);
         }
+        else{
+            for (Object[] row: pedidos){
+                String year = String.valueOf(((Number) row[0]).intValue());
+                Double totalPedido = ((Number) row[1]).doubleValue();
+                total.put(year, totalPedido);
+            }
+        }
+
+        System.out.println(total.toString());
+
         return total;
     }
 
@@ -177,11 +184,21 @@ public class ClienteService {
      */
     public Map<String, Double> getStats(Long idCliente, Long idVendedor) {
         Map<String,Double> total = new LinkedHashMap<>();
-        for (Object[] row: pedidoRepository.getTotalesPorClientesDeVendedor(idVendedor,idCliente)){
-            String year = String.valueOf(((Number) row[0]).intValue());
-            Double totalPedido = ((Number) row[1]).doubleValue();
-            total.put(year, totalPedido);
+        System.out.println("Entra------");
+        List<Object[]> pedidos = pedidoRepository.getTotalesPorClientesDeVendedor(idVendedor,idCliente);
+        if (pedidos.isEmpty()){
+            total.put(String.valueOf(LocalDate.now().getYear()),0.0);
         }
+        else{
+            for (Object[] row: pedidos){
+                String year = String.valueOf(((Number) row[0]).intValue());
+                Double totalPedido = ((Number) row[1]).doubleValue();
+                total.put(year, totalPedido);
+            }
+        }
+
+        System.out.println(total.toString());
+
         return total;
     }
 
@@ -207,6 +224,7 @@ public class ClienteService {
     public int importarCsvClientes(MultipartFile file) throws Exception {
 
         int insertados = 0;
+        List<Cliente> clientes = new ArrayList<>();
 
         try (BufferedReader br = new BufferedReader(
                 new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
@@ -230,16 +248,14 @@ public class ClienteService {
                         .orElse(null);
 
                 if (vendedor == null) {
-                    System.out.println("⚠️ No existe vendedor con email: " + vendedorEmail + " — Cliente ignorado.");
-                    continue; // No insertamos clientes sin vendedor válido
+                    throw new RuntimeException("No existe vendedor con email: " + vendedorEmail);
                 }
 
-                // 2️⃣ Comprobar SI YA EXISTE el CIF
+                //  Comprobar SI YA EXISTE el CIF
                 boolean existe = clienteRepository.findByCif(cif).isPresent();
 
                 if (existe) {
-                    System.out.println("⚠️ CIF duplicado: " + cif + " — Cliente ignorado.");
-                    continue;
+                    throw new RuntimeException("CIF duplicado: " + cif);
                 }
 
 
@@ -247,12 +263,11 @@ public class ClienteService {
                 cliente.setNombre(nombre);
                 cliente.setCif(cif);
                 cliente.setVendedor(vendedor);
-
-                clienteRepository.save(cliente);
+                clientes.add(cliente);
                 insertados++;
             }
         }
-
+        clienteRepository.saveAll(clientes);
         return insertados;
     }
 

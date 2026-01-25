@@ -2,6 +2,7 @@ package com.gestorventas.deposito.controllers;
 
 import com.gestorventas.deposito.dto.in.ClienteDto;
 import com.gestorventas.deposito.dto.out.ClienteResponseDto;
+import com.gestorventas.deposito.enums.Role;
 import com.gestorventas.deposito.models.Vendedor;
 import com.gestorventas.deposito.repositories.VendedorRepository;
 import com.gestorventas.deposito.services.ClienteService;
@@ -118,28 +119,18 @@ public class ClienteController {
 
         var email = auth.getName();
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
-        ClienteResponseDto cliente = clienteService.get(u.getId(), idCliente);
+        ClienteResponseDto cliente;
+        if(u.getRoles().contains(Role.ADMIN)){
+            cliente = clienteService.get(idCliente);
+        }else {
+            cliente = clienteService.get(u.getId(), idCliente);
+
+        }
         if (cliente == null)
             return ResponseEntity.notFound().build();
         return ResponseEntity.ok(cliente);
     }
 
-
-    /**
-     * Obtener un cliente por su ID.
-     * @param IdCliente identificador del cliente
-     * @return DTO con los datos del cliente
-     */
-    @GetMapping("/admin/{IdCliente}")
-    @Operation(summary = "Obtener un cliente por su ID", description = "Obtener un cliente por su ID")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Cliente encontrado"),
-            @ApiResponse(responseCode = "404", description = "Cliente no encontrado", content = @Content)
-    })
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ClienteResponseDto> getAdmin(@PathVariable Long IdCliente){
-        return ResponseEntity.ok(clienteService.get(IdCliente));
-    }
 
     /**
      * Actualizar los datos de un cliente existente.
@@ -190,18 +181,6 @@ public class ClienteController {
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Sacar un maepo con los gastos de un cliente de forma anual.
-     * @param idCliente identificador del cliente
-     * @return Map<String, Double> con los gastos anuales.
-     */
-    @GetMapping("/admin/{idCliente}/stats")
-    @Operation(summary = "Obtener las estadisticas de un cliente", description = "listado anual de los gastos de un cliente")
-    @ApiResponse(responseCode = "200", description = "Lista de clientes encontrados")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, Double>> getStats(@PathVariable Long idCliente){
-        return ResponseEntity.ok(clienteService.getStats(idCliente));
-    }
 
     /**
      * Sacar un maepo con los gastos de un cliente de forma anual.
@@ -216,6 +195,8 @@ public class ClienteController {
                                                         @PathVariable Long idCliente){
         var email = auth.getName();
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
+        if(u.getRoles().contains(Role.ADMIN))
+            return ResponseEntity.ok(clienteService.getStats(idCliente));
         return ResponseEntity.ok(clienteService.getStats(idCliente, u.getId()));
     }
 

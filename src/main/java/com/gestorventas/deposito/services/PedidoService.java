@@ -342,16 +342,17 @@ public class PedidoService {
 
     public byte[] exportPedidosCsv() {
         StringBuilder csv = new StringBuilder();
-        csv.append("ID;FECHA;IDPRODUCTO;UNIDADES;PVP\n");
+        csv.append("ID;FECHA;PRODUCTO;UNIDADES;PVP;CIF_CLIENTE\n");
         List<Pedido> pedidos = pedidoRepository.findAll();
 
         for (Pedido pedido : pedidos) {
             for (LineaPedido linea : pedido.getLineas()) {
                 csv.append(pedido.getId()).append(";")
                         .append(pedido.getFecha()).append(";")
-                        .append(linea.getProducto().getId()).append(";")
+                        .append(linea.getProducto().getDescripcion()).append(";")
                         .append(linea.getCantidad()).append(";")
-                        .append(linea.getPrecio()).append("\n");
+                        .append(linea.getPrecio()).append(";")
+                        .append(pedido.getCliente().getCif()).append("\n");
             }
         }
         return ("\uFEFF" + csv).getBytes(StandardCharsets.UTF_8);

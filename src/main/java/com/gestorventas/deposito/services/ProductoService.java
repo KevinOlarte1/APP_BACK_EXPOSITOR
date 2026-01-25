@@ -17,6 +17,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -190,6 +191,7 @@ public class ProductoService {
     public int importarCsvProductos(MultipartFile file) throws IOException {
         int insertados = 0;
         System.out.println("Entra");
+        List<Producto> productos = new ArrayList<>();
 
         try (BufferedReader br = new BufferedReader(
                 new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
@@ -222,10 +224,11 @@ public class ProductoService {
                         .precio(precio)
                         .categoria(categoriaRepository.findByNombre(categoria))
                         .build();
-                productoRepository.save(producto);
+                productos.add(producto);
                 insertados++;
             }
         }
+        productoRepository.saveAll(productos);
         return insertados;
     }
 }

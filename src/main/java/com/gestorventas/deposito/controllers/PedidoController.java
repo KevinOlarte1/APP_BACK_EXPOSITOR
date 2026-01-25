@@ -57,14 +57,9 @@ public class PedidoController {
             @PathVariable Long idCliente) {
         var email = auth.getName();
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
+        if(u.getRoles().contains(Role.ADMIN))
+            return ResponseEntity.status(HttpStatus.CREATED).body(pedidoService.addAdmin(idCliente));
         return ResponseEntity.status(HttpStatus.CREATED).body(pedidoService.add(idCliente, u.getId()));
-    }
-
-    @PostMapping("/admin")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> addAdmin(
-            @PathVariable Long idCliente){
-        return  ResponseEntity.status(HttpStatus.CREATED).body(pedidoService.addAdmin(idCliente));
     }
 
     /**
@@ -113,22 +108,12 @@ public class PedidoController {
         var email = auth.getName();
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
         Long idVendedor = u.getId();
+        if (u.getRoles().contains(Role.ADMIN)) {
+            return ResponseEntity.ok(pedidoService.getAll(null, idCliente));
+        }
         return ResponseEntity.ok(pedidoService.getAll(idVendedor, idCliente));
     }
-    /**
-     * Obtener todos los pedidos de un cliente.
-     * @param idCliente identificador del cliente
-     * @return lista de DTOs con todos los pedidos.
-     */
-    @GetMapping("/admin")
-    @Operation(summary = "Obtener todos los pedidos de un cliente", description = "Obtener todos los pedidos de un cliente")
-    @ApiResponse(responseCode = "200", description = "Lista de pedidos encontrados")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<PedidoResponseDto>> getAllAdmin(
-            @PathVariable Long idCliente) {
 
-        return ResponseEntity.ok(pedidoService.getAll(null, idCliente));
-    }
 
     /**
      * Actualizar los datos de un pedido concreto.

@@ -14,6 +14,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -91,6 +92,7 @@ public class CategoriaService {
 
     public int importarCsvCategorias(MultipartFile file) throws IOException {
         int insertados = 0;
+        List<Categoria> categorias = new ArrayList<>();
 
         try (BufferedReader br = new BufferedReader(
                 new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
@@ -109,14 +111,14 @@ public class CategoriaService {
 
                 Categoria categoria = categoriaRepository.findByNombre(nombre);
 
-                if (categoria != null) continue;
+                if (categoria != null) throw new RuntimeException("La categoria ya existe");
                 categoria = new Categoria();
                 categoria.setNombre(nombre);
-                categoriaRepository.save(categoria);
+                categorias.add(categoria);
                 insertados++;
             }
         }
-
+        categoriaRepository.saveAll(categorias);
         return insertados;
     }
 

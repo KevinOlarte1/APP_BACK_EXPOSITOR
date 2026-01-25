@@ -51,6 +51,7 @@ public class DataInitializer implements CommandLineRunner {
         if (userRepository.findByEmail(adminEmail).isEmpty()) {
             userService.add(adminName, "Olarte", adminPassword , adminEmail, Role.ADMIN);
             userService.add("Guillermo", "Cholbi", "1234" , "gcholbi@gmail.com", Role.ADMIN);
+                userService.add("prueba", "001", "1234", "prueba001@gmail.com", Role.USER);
             System.out.println("Admin creado: " + adminEmail);
             System.out.println("Admin creado: " + "gcholbi@gmail.com");
         }
