@@ -36,20 +36,24 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final PasswordEncoder passwordEncoder;
     @Value("${security.jwt.refresh-expiration}") long refreshExpirationMillis;
-;
+
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponseDto> login(@RequestBody LoginRequestDto request){
+    public ResponseEntity<?> login(@RequestBody LoginRequestDto request){
         var auth =  new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword());
         authenticationManager.authenticate(auth);
 
-        Vendedor user = vendedorRepository.findByEmail(request.getEmail()).orElseThrow();
+        Vendedor user = vendedorRepository.findByEmail(request.getEmail()).orElse(null);
+        if(user == null){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "No user found with that email"));
+        }
 
         String acccessToken = jwtUtil.generateAccessToken(user.getEmail(), vendedorService.userClaims(user));
         String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
 
         user.setRefreshToken(refreshToken);
-        user.setRefreshTokenExpiry(LocalDateTime.now().plusNanos(refreshExpirationMillis));
+        user.setRefreshTokenExpiry(LocalDateTime.now().plusNanos(refreshExpirationMillis  * 1_000_000L));
 
         vendedorRepository.save(user);
         return ResponseEntity.ok(new LoginResponseDto(acccessToken,refreshToken));
@@ -58,7 +62,6 @@ public class AuthController {
     @PostMapping("/refresh")
     public ResponseEntity<?> refresh(@RequestBody Map<String, String> request){
         String oldRefreshToken = request.get("refreshToken");
-
         //Verificar validez del token
         if(!jwtUtil.validateToken(oldRefreshToken)){
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -67,7 +70,11 @@ public class AuthController {
 
         //Extraer el usuario
         String email = jwtUtil.getSubject(oldRefreshToken);
-        Vendedor user = vendedorRepository.findByEmail(email).orElseThrow();
+        Vendedor user = vendedorRepository.findByEmail(email).orElse(null);
+        if(user == null){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "No user found with that email"));
+        }
 
         //Comprobar si el token coincide con el guardado en la BBDD
         if (!oldRefreshToken.equals(user.getRefreshToken())){
@@ -91,7 +98,7 @@ public class AuthController {
 
         //Actualizar BBDD
         user.setRefreshToken(newRefreshToken);
-        user.setRefreshTokenExpiry(LocalDateTime.now().plusNanos(refreshExpirationMillis));
+        user.setRefreshTokenExpiry(LocalDateTime.now().plusNanos(refreshExpirationMillis  * 1_000_000L));
         vendedorRepository.save(user);
 
         return ResponseEntity.ok(new LoginResponseDto(newAccessToken,newRefreshToken));
@@ -130,6 +137,14 @@ public class AuthController {
         String code = request.get("code");
         String newPassword = request.get("newPassword");
 
+            // 1) Validar campos
+            if (email == null || email.isBlank() ||
+                    code == null || code.isBlank() ||
+                    newPassword == null || newPassword.isBlank()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("error", "Faltan campos: email, code, newPassword"));
+            }
+
         Vendedor user = vendedorRepository.findByEmail(email).orElse(null);
 
         if(user == null){
@@ -137,9 +152,33 @@ public class AuthController {
                     .body(Map.of("error", "Usuario no encontrado"));
         }
 
+        if(user.getResetCode() == null || user.getResetCodeExpiry() == null){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "No hay solicitud de reset activa para este usuario"));
+        }
+
+        // 3) Comprobar expiración
+        if (user.getResetCodeExpiry().isBefore(LocalDateTime.now())) {
+            // Limpieza para que no quede un código viejo activo
+            user.setResetCode(null);
+            user.setResetCodeExpiry(null);
+            vendedorRepository.save(user);
+
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "El código ha caducado. Solicita uno nuevo"));
+        }
+
+        // 4) Comprobar código (mejor constant-time, pero esto ya arregla el agujero)
+        if (!code.equals(user.getResetCode())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Código incorrecto"));
+        }
+
         user.setPassword(passwordEncoder.encode(newPassword));
         user.setResetCode(null);
         user.setResetCodeExpiry(null);
+        user.setRefreshToken(null);
+        user.setRefreshTokenExpiry(null);
         vendedorRepository.save(user);
 
         return ResponseEntity.ok(Map.of("message", "Password cambiada correctamente"));

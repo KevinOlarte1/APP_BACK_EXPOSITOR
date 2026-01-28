@@ -32,7 +32,7 @@ public class JwtUtil {
 
     // 🟢 Generar Token de acceso
     public String generateAccessToken(String subject, Map<String,Object> claims) {
-        return generateToken(subject, claims, expirationMillis);
+        return generateToken(subject, claims, 9000); //expirationMillis
     }
 
     // 🟢 Generar Refresh Token

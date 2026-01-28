@@ -3,6 +3,7 @@ package com.gestorventas.deposito.services;
 import com.gestorventas.deposito.dto.out.ConfigDtoResponse;
 import com.gestorventas.deposito.models.ParametrosGlobales;
 import com.gestorventas.deposito.repositories.ParametrosGlobalesRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -58,6 +59,18 @@ public class ParametrosGlobalesService {
 
         return new ConfigDtoResponse(iva, descuento, grupoMax);
     }
+    @Transactional
+    public void ensureDefaults() {
+        if (repo.findById(1L).isEmpty()) {
+            ParametrosGlobales p = new ParametrosGlobales();
+            p.setId(1L);              // si tu entidad permite setId; si es @GeneratedValue, NO lo pongas
+            p.setIva(21);
+            p.setDescuento(0);
+            p.setGrupoMax(4);
+            repo.save(p);
+        }
+    }
+
 
 
 }

@@ -48,21 +48,32 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
+        // Admin principal (por properties)
         if (userRepository.findByEmail(adminEmail).isEmpty()) {
-            userService.add(adminName, "Olarte", adminPassword , adminEmail, Role.ADMIN);
-            userService.add("Guillermo", "Cholbi", "1234" , "gcholbi@gmail.com", Role.ADMIN);
-                userService.add("prueba", "001", "1234", "prueba001@gmail.com", Role.USER);
+            userService.add(adminName, "Olarte", adminPassword, adminEmail, Role.ADMIN);
             System.out.println("Admin creado: " + adminEmail);
-            System.out.println("Admin creado: " + "gcholbi@gmail.com");
         }
-        paramService.set(21,10, 4);
-        CIF_usados = new ArrayList<>();
-        createCategorias();
-        randomProducts(100);
-        randomVendedores(10);
-        randomClientes(40);
-        randomPedidos(10);
-        randomLineaPeidos(5);
+
+        // Admin fijo
+        if (userRepository.findByEmail("gcholbi@gmail.com").isEmpty()) {
+            userService.add("Guillermo", "Cholbi", "1234", "gcholbi@gmail.com", Role.ADMIN);
+            System.out.println("Admin creado: gcholbi@gmail.com");
+        }
+
+        // User de prueba
+        if (userRepository.findByEmail("prueba001@gmail.com").isEmpty()) {
+            userService.add("prueba", "001", "1234", "prueba001@gmail.com", Role.USER);
+            System.out.println("User creado: prueba001@gmail.com");
+        }
+
+        paramService.ensureDefaults();
+        //CIF_usados = new ArrayList<>();
+        //createCategorias();
+        //randomProducts(100);
+        //randomVendedores(10);
+        //randomClientes(40);
+        //randomPedidos(10);
+        //randomLineaPeidos(5);
     }
 
     private void createCategorias() {
