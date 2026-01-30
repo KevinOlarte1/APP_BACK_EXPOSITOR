@@ -190,7 +190,6 @@ public class VendedorService {
     }
 
     public List<ProductoCount> getTopProducts(Long idVendedor, Long numProductos) {
-        System.out.println("asdasda");
         if (idVendedor == null){
             return new ArrayList<>();
         }

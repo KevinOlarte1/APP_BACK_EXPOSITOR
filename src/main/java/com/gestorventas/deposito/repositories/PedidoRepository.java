@@ -81,7 +81,7 @@ public interface PedidoRepository extends JpaRepository<Pedido,Long>, JpaSpecifi
     @Query("""
             SELECT lp.producto.id as productoId, SUM(lp.cantidad) as total
             FROM Pedido p JOIN p.lineas lp
-            WHERE p.cliente.vendedor.id = :idVendedor
+            WHERE p.cliente.vendedor.id = :idVendedor and lp.producto.activo = true
             AND lp.producto.activo = TRUE
             GROUP BY lp.producto.id
             ORDER BY total DESC

@@ -24,7 +24,11 @@ public class Categoria {
     @Column(nullable = false, unique = true)
     private String nombre;
 
+    @Column(nullable = false)
+    private Boolean activo;
+
     @OneToMany(mappedBy = "categoria", cascade = CascadeType.ALL)
     private Set<Producto> productos = new LinkedHashSet<>();
+
 
 }

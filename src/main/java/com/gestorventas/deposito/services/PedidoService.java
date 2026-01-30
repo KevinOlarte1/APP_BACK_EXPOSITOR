@@ -206,6 +206,24 @@ public class PedidoService {
         Pedido pedido = pedidoRepository.findById(id);
         if (pedido == null || pedido.getCliente() == null || pedido.getCliente().getId() != idCliente)
             return;
+        if (pedido.isFinalizado())
+            return;
+        pedidoRepository.delete(pedido);
+
+    }
+
+    /**
+     * Borrar un pedio pero con menos restrinciones
+     * @param id indentificador del pedido
+     * @param idCliente identificador de asociado al pedido
+     */
+    public void delete(long id, long idCliente) {
+        Cliente cliente = clienteRepository.findById(idCliente);
+        if (cliente == null || cliente.getVendedor() == null)
+            return;
+        Pedido pedido = pedidoRepository.findById(id);
+        if (pedido == null || pedido.getCliente() == null || pedido.getCliente().getId() != idCliente)
+            return;
         pedidoRepository.delete(pedido);
 
     }

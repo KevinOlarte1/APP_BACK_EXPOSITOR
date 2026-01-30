@@ -155,6 +155,9 @@ public class PedidoController {
         var email = auth.getName();
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
         Long idVendedor = u.getId();
+        if (u.getRoles().contains(Role.ADMIN)) {
+            pedidoService.delete(id, idCliente);
+        }
         pedidoService.delete(id, idCliente, idVendedor);
         return ResponseEntity.noContent().build();
     }
