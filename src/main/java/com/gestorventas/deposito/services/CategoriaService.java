@@ -40,6 +40,7 @@ public class CategoriaService {
 
         Categoria categoria = new Categoria();
         categoria.setNombre(nombre);
+        categoria.setActivo(true);
         return new CategoriaResponseDto(categoriaRepository.save(categoria));
     }
 
@@ -48,7 +49,7 @@ public class CategoriaService {
      * @return Listado de categorias.
      */
     public List<CategoriaResponseDto> getAll(){
-        return categoriaRepository.findAll().stream().map(CategoriaResponseDto::new).toList();
+        return categoriaRepository.findAllByActivo(true).stream().map(CategoriaResponseDto::new).toList();
     }
 
     /**
@@ -58,7 +59,7 @@ public class CategoriaService {
      */
     public CategoriaResponseDto get(long id){
         Categoria categoria = categoriaRepository.findById(id);
-        if (categoria == null)
+        if (categoria == null || !categoria.isActivo())
             return null;
         return new CategoriaResponseDto(categoria);
     }
@@ -71,7 +72,7 @@ public class CategoriaService {
      */
     public CategoriaResponseDto update(long id, String nombre){
         Categoria categria = categoriaRepository.findById(id);
-        if (categria == null)
+        if (categria == null || !categria.isActivo())
             throw new IllegalArgumentException("La categoria no existe");
 
         if (nombre != null && !nombre.isEmpty()) {
@@ -88,7 +89,8 @@ public class CategoriaService {
         Categoria categoria = categoriaRepository.findById(id);
         if (categoria == null)
             throw new IllegalArgumentException("La categoria no existe");
-        categoriaRepository.delete(categoria);
+        categoria.setActivo(false);
+        categoriaRepository.save(categoria);
     }
 
     public int importarCsvCategorias(MultipartFile file) throws IOException {
@@ -137,6 +139,7 @@ public class CategoriaService {
 
                 Categoria c = new Categoria();
                 c.setNombre(nombre);
+                c.setActivo(true);
                 nuevas.add(c);
             }
         }
@@ -157,7 +160,7 @@ public class CategoriaService {
         csv.append("ID;NOMBRE\n");
         List<Categoria> categorias = categoriaRepository.findAll();
         for (Categoria categoria : categorias) {
-            csv.append(categoria.getId()).append(";").append(categoria.getNombre()).append("\n");
+            csv.append(categoria.getId()).append(";").append(categoria.getNombre()).append(";").append(categoria.isActivo()).append("\n");
         }
         return ("\uFEFF" + csv).getBytes(StandardCharsets.UTF_8);
     }
