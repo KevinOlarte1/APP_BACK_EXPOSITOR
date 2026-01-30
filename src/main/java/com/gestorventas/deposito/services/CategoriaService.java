@@ -15,7 +15,9 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @AllArgsConstructor
@@ -77,7 +79,6 @@ public class CategoriaService {
             if (categoriaRepository.findByNombre(nombre) != null)
                 throw new IllegalArgumentException("La categoria ya existe");
             categria.setNombre(nombre);
-            System.out.println("Categoria actualizada");
             return new CategoriaResponseDto(categoriaRepository.save(categria));
         }
         return  new CategoriaResponseDto(categria);
@@ -91,35 +92,64 @@ public class CategoriaService {
     }
 
     public int importarCsvCategorias(MultipartFile file) throws IOException {
-        int insertados = 0;
-        List<Categoria> categorias = new ArrayList<>();
+
+        if (file == null || file.isEmpty()) {
+            throw new RuntimeException("El archivo CSV está vacío");
+        }
+
+        // 1) Parse + validación SIN tocar BD
+        List<Categoria> nuevas = new ArrayList<>();
+        Set<String> nombresEnCsv = new HashSet<>();
 
         try (BufferedReader br = new BufferedReader(
                 new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
 
-            // Leer cabecera
-            br.readLine();
+            // Cabecera
+            String header = br.readLine();
+            if (header == null) {
+                throw new RuntimeException("El archivo CSV está vacío");
+            }
 
             String linea;
+            int numLinea = 1; // header = 1
 
             while ((linea = br.readLine()) != null) {
+                numLinea++;
 
-                String[] campos = linea.split(";");
-                if (campos.length < 2) continue;
+                // Opcional: saltar líneas en blanco
+                if (linea.trim().isEmpty()) continue;
 
-                String nombre = campos[1].trim().toUpperCase();
+                String[] campos = linea.split(";", -1); // -1 mantiene vacíos
+                if (campos.length < 2) {
+                    throw new RuntimeException("Formato inválido en línea " + numLinea + " (se esperaban al menos 2 columnas)");
+                }
 
-                Categoria categoria = categoriaRepository.findByNombre(nombre);
+                String nombre = campos[1] == null ? "" : campos[1].trim().toUpperCase();
 
-                if (categoria != null) throw new RuntimeException("La categoria ya existe");
-                categoria = new Categoria();
-                categoria.setNombre(nombre);
-                categorias.add(categoria);
-                insertados++;
+                if (nombre.isEmpty()) {
+                    throw new RuntimeException("El nombre de la categoría no puede estar vacío (línea " + numLinea + ")");
+                }
+
+                // Unicidad dentro del CSV
+                if (!nombresEnCsv.add(nombre)) {
+                    throw new RuntimeException("Nombre de categoría duplicado en el CSV: '" + nombre + "' (línea " + numLinea + ")");
+                }
+
+                Categoria c = new Categoria();
+                c.setNombre(nombre);
+                nuevas.add(c);
             }
         }
-        categoriaRepository.saveAll(categorias);
-        return insertados;
+
+        if (nuevas.isEmpty()) {
+            throw new RuntimeException("El CSV no contiene categorías válidas para importar");
+        }
+
+        // 2) Replace total (solo si todo validó)
+        categoriaRepository.deleteAll();
+        categoriaRepository.saveAll(nuevas);
+
+        return nuevas.size();
     }
 
     public byte[] exportCategoriasCsv() {

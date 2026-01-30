@@ -42,7 +42,6 @@ public class AuthController {
     public ResponseEntity<?> login(@RequestBody LoginRequestDto request){
         var auth =  new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword());
         authenticationManager.authenticate(auth);
-
         Vendedor user = vendedorRepository.findByEmail(request.getEmail()).orElse(null);
         if(user == null){
             return ResponseEntity.status(HttpStatus.NOT_FOUND)

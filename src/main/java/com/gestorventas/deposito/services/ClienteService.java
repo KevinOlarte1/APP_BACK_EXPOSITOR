@@ -171,7 +171,6 @@ public class ClienteService {
             }
         }
 
-        System.out.println(total.toString());
 
         return total;
     }
@@ -184,7 +183,6 @@ public class ClienteService {
      */
     public Map<String, Double> getStats(Long idCliente, Long idVendedor) {
         Map<String,Double> total = new LinkedHashMap<>();
-        System.out.println("Entra------");
         List<Object[]> pedidos = pedidoRepository.getTotalesPorClientesDeVendedor(idVendedor,idCliente);
         if (pedidos.isEmpty()){
             total.put(String.valueOf(LocalDate.now().getYear()),0.0);
@@ -197,7 +195,6 @@ public class ClienteService {
             }
         }
 
-        System.out.println(total.toString());
 
         return total;
     }
@@ -223,52 +220,77 @@ public class ClienteService {
 
     public int importarCsvClientes(MultipartFile file) throws Exception {
 
-        int insertados = 0;
-        List<Cliente> clientes = new ArrayList<>();
+        if (file == null || file.isEmpty()) {
+            throw new RuntimeException("El archivo CSV está vacío");
+        }
+
+        // 1️⃣ Parse + validación (SIN tocar BD)
+        List<Cliente> nuevos = new ArrayList<>();
+        Set<String> cifsEnCsv = new HashSet<>();
 
         try (BufferedReader br = new BufferedReader(
                 new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
 
-            // Leer cabecera
-            br.readLine();
+            // Cabecera
+            String header = br.readLine();
+            if (header == null) {
+                throw new RuntimeException("El archivo CSV está vacío");
+            }
 
             String linea;
+            int numLinea = 1;
 
             while ((linea = br.readLine()) != null) {
+                numLinea++;
 
-                String[] campos = linea.split(";");
-                if (campos.length < 4) continue;
+                if (linea.trim().isEmpty()) continue;
+
+                String[] campos = linea.split(";", -1);
+                if (campos.length < 4) {
+                    throw new RuntimeException("Formato inválido en línea " + numLinea + " (mínimo 4 columnas)");
+                }
 
                 String nombre = campos[1].trim();
-                String cif = campos[2].trim();
-                String vendedorEmail = campos[3].trim();
+                String cif = campos[2].trim().toUpperCase();
+                String vendedorEmail = campos[3].trim().toLowerCase();
 
-                // Buscar vendedor por email
+                if (nombre.isEmpty()) {
+                    throw new RuntimeException("Nombre vacío en línea " + numLinea);
+                }
+
+                if (cif.isEmpty()) {
+                    throw new RuntimeException("CIF vacío en línea " + numLinea);
+                }
+
+                // CIF único DENTRO del CSV
+                if (!cifsEnCsv.add(cif)) {
+                    throw new RuntimeException("CIF duplicado en el CSV: " + cif + " (línea " + numLinea + ")");
+                }
+
+                // Vendedor debe existir
                 Vendedor vendedor = vendedorRepository.findByEmail(vendedorEmail)
-                        .orElse(null);
-
-                if (vendedor == null) {
-                    throw new RuntimeException("No existe vendedor con email: " + vendedorEmail);
-                }
-
-                //  Comprobar SI YA EXISTE el CIF
-                boolean existe = clienteRepository.findByCif(cif).isPresent();
-
-                if (existe) {
-                    throw new RuntimeException("CIF duplicado: " + cif);
-                }
-
+                        .orElseThrow(() ->
+                                new RuntimeException("No existe vendedor con email '" + vendedorEmail )
+                        );
 
                 Cliente cliente = new Cliente();
                 cliente.setNombre(nombre);
                 cliente.setCif(cif);
                 cliente.setVendedor(vendedor);
-                clientes.add(cliente);
-                insertados++;
+
+                nuevos.add(cliente);
             }
         }
-        clienteRepository.saveAll(clientes);
-        return insertados;
+
+        if (nuevos.isEmpty()) {
+            throw new RuntimeException("El CSV no contiene clientes válidos para importar");
+        }
+
+        // 2️⃣ Replace total (solo si TODO validó)
+        clienteRepository.deleteAll();
+        clienteRepository.saveAll(nuevos);
+
+        return nuevos.size();
     }
 
 

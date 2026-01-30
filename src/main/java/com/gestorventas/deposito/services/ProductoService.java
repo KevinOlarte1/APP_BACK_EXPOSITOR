@@ -17,10 +17,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Servicio encargado de gestionar la logica del negocio relacionado con los Productos.
@@ -189,46 +186,90 @@ public class ProductoService {
      * @throws IOException problemas con la lectura del fichero.
      */
     public int importarCsvProductos(MultipartFile file) throws IOException {
-        int insertados = 0;
-        System.out.println("Entra");
-        List<Producto> productos = new ArrayList<>();
+
+        if (file == null || file.isEmpty()) {
+            throw new RuntimeException("El archivo CSV está vacío");
+        }
+
+        List<Producto> nuevos = new ArrayList<>();
+        Set<String> descripcionesEnCsv = new HashSet<>();
 
         try (BufferedReader br = new BufferedReader(
                 new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
 
+            // Cabecera
             String header = br.readLine();
+            if (header == null) {
+                throw new RuntimeException("El archivo CSV está vacío");
+            }
+
             String linea;
+            int numLinea = 1;
 
-            while ((linea = br.readLine()) != null){
-                System.out.println(linea);
-                String[] campos = linea.split(";");
+            while ((linea = br.readLine()) != null) {
+                numLinea++;
 
-                if (campos.length < 4) continue;
+                if (linea.trim().isEmpty()) continue;
+
+                String[] campos = linea.split(";", -1);
+                if (campos.length < 4) {
+                    throw new RuntimeException("Formato inválido en línea " + numLinea + " (mínimo 4 columnas)");
+                }
 
                 // --- PARSEO ---
-                String idStr = campos[0].trim();
-                String nombre = campos[1].trim();
+                // Si no usas id, puedes ignorarlo; lo dejo por compatibilidad
+                String idStr = campos[0].trim(); // no usado
+                String descripcion = campos[1].trim().toUpperCase();
                 String precioStr = campos[2].trim();
-                String categoria = campos[3].trim();
+                String categoriaNombre = campos[3].trim().toUpperCase();
+
+                if (descripcion.isEmpty()) {
+                    throw new RuntimeException("Descripción vacía en línea " + numLinea);
+                }
+
+                // Descripción única dentro del CSV
+                if (!descripcionesEnCsv.add(descripcion)) {
+                    throw new RuntimeException("Descripción duplicada en el CSV: '" + descripcion + "' (línea " + numLinea + ")");
+                }
+
+                if (categoriaNombre.isEmpty()) {
+                    throw new RuntimeException("Categoría vacía en línea " + numLinea);
+                }
 
                 double precio;
-
                 try {
                     precio = Double.parseDouble(precioStr.replace(",", "."));
                 } catch (NumberFormatException e) {
-                    // si hay error de formato, saltamos la fila
-                    continue;
+                    throw new RuntimeException("Precio inválido '" + precioStr + "' en línea " + numLinea);
                 }
+
+                // Validar que la categoría existe
+                Categoria categoria = categoriaRepository.findByNombre(categoriaNombre);
+                if (categoria == null) {
+                    throw new RuntimeException("No existe la categoría '" + categoriaNombre + "' (línea " + numLinea + ")");
+                }
+
                 Producto producto = Producto.builder()
-                        .descripcion(nombre)
+                        .descripcion(descripcion)
                         .precio(precio)
-                        .categoria(categoriaRepository.findByNombre(categoria))
+                        .categoria(categoria)
+                        .activo(true)
                         .build();
-                productos.add(producto);
-                insertados++;
+
+                nuevos.add(producto);
+
             }
         }
-        productoRepository.saveAll(productos);
-        return insertados;
+
+        if (nuevos.isEmpty()) {
+            throw new RuntimeException("El CSV no contiene productos válidos para importar");
+        }
+
+        // ✅ Replace total SOLO si todo validó
+        productoRepository.deleteAll();
+        productoRepository.saveAll(nuevos);
+
+        return nuevos.size();
     }
+
 }
