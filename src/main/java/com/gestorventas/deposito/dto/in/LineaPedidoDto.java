@@ -2,6 +2,9 @@ package com.gestorventas.deposito.dto.in;
 
 import lombok.Getter;
 import lombok.Setter;
+
+import java.math.BigDecimal;
+
 /**
  * Objeto de transferencia de datos (DTO) utilizado para crear o actualizar Linea de pedidos.
  * <p>
@@ -15,6 +18,7 @@ import lombok.Setter;
 public class LineaPedidoDto {
     private Long idProducto;
     private Integer cantidad;
-    private Double precio;
+    private BigDecimal precio;
     private Integer grupo;
+    private Integer stockFinal;
 }

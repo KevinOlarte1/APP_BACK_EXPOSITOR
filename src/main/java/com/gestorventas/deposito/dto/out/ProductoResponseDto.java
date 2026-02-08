@@ -4,6 +4,8 @@ import com.gestorventas.deposito.models.producto.Producto;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 /**
  * DTO de salida para representar los datos públicos de un producto del sistema.
  * <p>
@@ -18,7 +20,7 @@ import lombok.Setter;
 public class ProductoResponseDto {
     private Long id;
     private String descripcion;
-    private Double precio;
+    private BigDecimal precio;
     private Long idCategoria;
     private String categoria;
 

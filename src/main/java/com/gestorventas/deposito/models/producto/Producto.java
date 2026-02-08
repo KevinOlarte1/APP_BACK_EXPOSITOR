@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 /**
  * Entidad que representan los productos que se venden en la empresa
  */
@@ -28,8 +30,8 @@ public class Producto {
     /**
      * Precio base del producto, precio modificable en la LineaPedido
      */
-    @Column(nullable = false)
-    private Double precio;
+    @Column(name = "precio", nullable = false, precision = 12, scale = 2)
+    private BigDecimal precio = BigDecimal.ZERO;
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "fk_categoria")
@@ -41,7 +43,7 @@ public class Producto {
 
     public Producto() {this.activo = true;}
 
-    public Producto(String descripcion, Double precio, Categoria categoria) {
+    public Producto(String descripcion, BigDecimal precio, Categoria categoria) {
         this.descripcion = descripcion;
         this.precio = precio;
         this.categoria = categoria;

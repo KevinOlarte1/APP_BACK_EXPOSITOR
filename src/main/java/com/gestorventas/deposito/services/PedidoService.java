@@ -4,6 +4,7 @@ import com.gestorventas.deposito.dto.out.PedidoResponseDto;
 import com.gestorventas.deposito.models.Cliente;
 import com.gestorventas.deposito.models.LineaPedido;
 import com.gestorventas.deposito.models.Vendedor;
+import com.gestorventas.deposito.repositories.LineaPedidoRepository;
 import com.gestorventas.deposito.specifications.PedidoSpecifications;
 import com.gestorventas.deposito.models.Pedido;
 import com.gestorventas.deposito.repositories.ClienteRepository;
@@ -20,10 +21,14 @@ import org.springframework.web.bind.annotation.GetMapping;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 /**
@@ -38,6 +43,7 @@ import java.util.Optional;
 public class PedidoService {
 
     private final MailService mailService;
+    private final LineaPedidoRepository lineaPedidoRepository;
     private PedidoRepository pedidoRepository;
     private VendedorRepository vendedorRepository;
     private ClienteRepository clienteRepository;
@@ -268,8 +274,25 @@ public class PedidoService {
         Pedido pedido = pedidoRepository.findById(idPedido);
         if (pedido == null || pedido.getCliente().getId() != idCliente)
             throw new RuntimeException("Pedido inexistente");
+        BigDecimal oldBruto = pedido.getBrutoTotal();
+        List<LineaPedido> lineasPeiddo = lineaPedidoRepository.getLineaPedidoByPedido(pedido);
+        BigDecimal nuevoTotal = BigDecimal.ZERO;
+        for (LineaPedido linea : lineasPeiddo) {
+            if (linea.getStockFinal() == null || linea.getStockFinal() < 0){
+                throw new RuntimeException("Hay lineas sin sotck_final definido");
+            }
+            if (linea.getStockFinal() > linea.getCantidad())
+                throw new RuntimeException("Incongruencia de valores");
+            //Revalorizamos unidad, con la diferencia del habia haber.
+            linea.setCantidad(linea.getCantidad() - linea.getStockFinal());
+            nuevoTotal = nuevoTotal.add(linea.getPrecio().multiply(
+                    BigDecimal.valueOf(linea.getCantidad())
+                            .setScale(2, RoundingMode.HALF_UP)));
 
+        }
         pedido.setFinalizado(true);
+        pedido.setBrutoTotal(nuevoTotal);
+
 
         pedido = pedidoRepository.save(pedido);
         /*
@@ -293,12 +316,14 @@ public class PedidoService {
         Pedido pedido = pedidoRepository.findById(idPedido);
         if (pedido == null)
             throw new RuntimeException("Pedido inexistente");
-        if (pedido.getCliente().getId()!=idCliente)
+        if (!pedido.getCliente().getId().equals(idCliente))
             throw new RuntimeException("Cliente inexistente");
-        if (pedido.getCliente().getVendedor().getId()!=idVendedor)
+        if (!pedido.getCliente().getVendedor().getId().equals(idVendedor))
             throw new RuntimeException("Vendedor inexistente");
         if (!pedido.isFinalizado())
             throw new RuntimeException("El pedido no ha sido finalizado");
+
+        NumberFormat nf = NumberFormat.getCurrencyInstance(new Locale("es", "ES"));
 
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
@@ -327,22 +352,25 @@ public class PedidoService {
                 cell.setHorizontalAlignment(Element.ALIGN_CENTER);
                 tabla.addCell(cell);
             }
-            double totalb = 0;
+            BigDecimal totalb = BigDecimal.ZERO;
             // Filas
             for (LineaPedido linea : pedido.getLineas()) {
-                double subtotal = linea.getCantidad() * linea.getPrecio();
+                BigDecimal subtotal = linea.getPrecio()
+                        .multiply(BigDecimal.valueOf(linea.getCantidad()))
+                        .setScale(2, RoundingMode.HALF_UP);
                 tabla.addCell(linea.getProducto().getDescripcion());
                 tabla.addCell(String.valueOf(linea.getCantidad()));
-                tabla.addCell(df.format(linea.getPrecio()) + " €");
-                tabla.addCell(df.format(subtotal) + " €");
-                totalb += subtotal;
-            }
+                tabla.addCell(nf.format(linea.getPrecio()));
+                tabla.addCell(nf.format(subtotal));
+                totalb = totalb.add(subtotal);
 
+            }
+            totalb = totalb.setScale(2, RoundingMode.HALF_UP);
             document.add(tabla);
 
             // Total
             document.add(new Paragraph(" "));
-            Paragraph total = new Paragraph("Total: " + df.format(totalb) + " €",
+            Paragraph total = new Paragraph("Total: " + nf.format(totalb),
                     FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14));
             total.setAlignment(Element.ALIGN_RIGHT);
             document.add(total);

@@ -16,6 +16,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
@@ -41,11 +43,11 @@ public class ProductoService {
      * @return DTO con los datos guardados visibles.
      * @throws RuntimeException entidades inexistentes.
      */
-    public ProductoResponseDto add(String descripcion, double precio, Long idCategoria) {
+    public ProductoResponseDto add(String descripcion, BigDecimal precio, Long idCategoria) {
         if (descripcion == null || descripcion.isEmpty()) {
             throw new IllegalArgumentException("El descripcion es obligatorio");
         }
-        if (precio <= 0) {
+        if (precio == null || precio.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("El precio es obligatorio");
         }
 
@@ -53,7 +55,7 @@ public class ProductoService {
             throw new IllegalArgumentException("La categoria es obligatoria");
         }
         Categoria categoria = categoriaRepository.findById((long)idCategoria);
-        if (categoria == null) {
+        if (categoria == null || !categoria.isActivo()) {
             throw new RuntimeException("Categoria inexistente");
         }
 
@@ -236,11 +238,16 @@ public class ProductoService {
                     throw new RuntimeException("Categoría vacía en línea " + numLinea);
                 }
 
-                double precio;
+                BigDecimal precio;
                 try {
-                    precio = Double.parseDouble(precioStr.replace(",", "."));
+                    precio = new BigDecimal(precioStr.replace(",", "."));
                 } catch (NumberFormatException e) {
                     throw new RuntimeException("Precio inválido '" + precioStr + "' en línea " + numLinea);
+                }
+                precio = precio.setScale(2, RoundingMode.HALF_UP);
+
+                if (precio.compareTo(BigDecimal.ZERO) <= 0) {
+                    throw new RuntimeException("Precio debe ser mayor que 0 en línea " + numLinea);
                 }
 
                 // Validar que la categoría existe

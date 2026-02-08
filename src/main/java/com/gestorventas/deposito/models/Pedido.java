@@ -41,7 +41,7 @@ public class Pedido {
     /**
      * Líneas de pedido asociadas.
      */
-    @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true,  fetch = FetchType.LAZY)
     private Set<LineaPedido> lineas = new LinkedHashSet<>();
 
     /**
@@ -79,5 +79,15 @@ public class Pedido {
         this.brutoTotal = BigDecimal.ZERO;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof LineaPedido other)) return false;
+        return id != null && id.equals(other.getId());
+    }
 
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
 }

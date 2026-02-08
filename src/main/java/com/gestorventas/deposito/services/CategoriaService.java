@@ -60,7 +60,7 @@ public class CategoriaService {
     public CategoriaResponseDto get(long id){
         Categoria categoria = categoriaRepository.findById(id);
         if (categoria == null || !categoria.isActivo())
-            return null;
+            throw new IllegalArgumentException("La categoria no existe");
         return new CategoriaResponseDto(categoria);
     }
 

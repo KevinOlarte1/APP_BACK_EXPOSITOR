@@ -48,7 +48,12 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        // Admin principal (por properties)
+        // Admin principar -- PROPIETARIO
+        if (userRepository.findByEmail("josepfornes@gmail.com").isEmpty()){
+            userService.add("Josep", "Fornes", "1234", "josepfornes@gmail.com", Role.ADMIN);
+            System.out.println("Admin creado: josepfornes@gmail.com");
+        }
+        // Admin tmp -- PROGRAMADOR
         if (userRepository.findByEmail(adminEmail).isEmpty()) {
             userService.add(adminName, "Olarte", adminPassword, adminEmail, Role.ADMIN);
             System.out.println("Admin creado: " + adminEmail);
@@ -76,116 +81,12 @@ public class DataInitializer implements CommandLineRunner {
         //randomLineaPeidos(5);
     }
 
-    private void createCategorias() {
-        String[] valores = {"PULSERA", "COLLAR", "ANILLO", "CORDAJE"};
-
-        for (String v : valores){
-            Categoria categoria = new Categoria();
-            categoria.setNombre(v);
-            categoriaRepository.save(categoria);
-        }
-    }
-
-    private void randomLineaPeidos(int cantidad) {
-        pedidoRepository.findAll().forEach( pedido -> {
-            for (int i = 0; i < cantidad; i++) {
-                crearLineaPedido(pedido);
-            }
-        });
-    }
-
-    private void crearLineaPedido(Pedido pedido) {
-        LineaPedido liena  = new LineaPedido();
-        liena.setPedido(pedido);
-
-        Producto producto = productoRepository.findById(random.nextInt(1,90));
-        liena.setProducto(producto);
-        liena.setPrecio(producto.getPrecio());
-        liena.setCantidad(random.nextInt(1,20));
-        lineaPedidoService.add(pedido.getCliente().getVendedor().getId(), pedido.getCliente().getId(), pedido.getId(), producto.getId(), liena.getCantidad(), liena.getPrecio(), null);
-
-    }
-
-    private void randomPedidos(int cantidad) {
-        clienteRepository.findAll().forEach( cliente -> {
-            for (int i = 0; i < cantidad; i++) {
-                createPedido(cliente);
-            }
-        });
-    }
-
-    private void createPedido(Cliente cliente) {
-        Pedido pedido = new Pedido();
-        pedido.setCliente(cliente);
-        pedidoService.add(cliente.getId(),cliente.getVendedor().getId());
-    }
-
-    private void randomClientes(int cantidad) {
-        vendedorRepository.findAll().forEach(vendedor -> {
-            for (int i = 0; i < cantidad; i++){
-                String CIF = faker.numerify("##########");
-                while (CIF_usados.contains(CIF)){
-                    CIF = faker.numerify("##########");
-                }
-                CIF_usados.add(CIF);
-                createCliente(
-                        faker.name().firstName().toLowerCase(Locale.ROOT),
-                        CIF,
-                        vendedor
-                );
-            }
-        });
-    }
 
 
 
-    private void randomProducts(int cantidad){
-        List<Categoria> categorias = categoriaRepository.findAll();
-        for (Categoria categoria : categorias) {
-            System.out.println(categoria.getNombre());
-        }
-        for (int i = 0; i < cantidad; i++) {
-            createProduct(faker.commerce().productName(),
-                    Math.round(Double.parseDouble(faker.commerce().price(1.0, 200.0)) * 100.0) / 100.0,
-                    categorias.get(random.nextInt(categorias.size()))
-            );
-        }
-    }
 
-    private void randomVendedores(int cantidad){
-        for (int i = 0; i < cantidad; i++) {
-            createVendedor(
-                    faker.name().firstName().toLowerCase(Locale.ROOT),
-                    faker.name().lastName().toLowerCase(Locale.ROOT),
-                    passwordEncoder.encode("1234"),
-                    "vendedor" + i + "@gmail.com",
-                    Role.USER
-            );
-        }
-    }
 
-    private void createCliente(String nombre, String CIF, Vendedor Vendedor) {
-        Cliente cliente = new Cliente(nombre, CIF);
-        cliente.setVendedor(Vendedor);
-        clienteRepository.save(cliente);
-    }
-    private void createVendedor(String name,String apellido, String password,String email,Role role){
-        vendedorRepository.save(Vendedor.builder()
-                .nombre(name)
-                .apellido(apellido)
-                .password(password)
-                .email(email)
-                .roles(Set.of(role))
-                .build());
-    }
 
-    private void createProduct(String name, double price, Categoria categoriaProducto){
-        productoRepository.save(Producto.builder()
-                .descripcion(name)
-                .precio(price)
-                .categoria(categoriaProducto)
-                .activo(true)
-                .build());
 
-    }
+
 }

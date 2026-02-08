@@ -5,10 +5,12 @@ import com.gestorventas.deposito.models.*;
 import com.gestorventas.deposito.models.producto.Producto;
 import com.gestorventas.deposito.repositories.*;
 import com.gestorventas.deposito.specifications.LineaPedidoSpecifications;
+import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Objects;
 
@@ -33,8 +35,9 @@ public class LineaPedidoService {
     /**
      * Guardar una nueva línea de pedido en el sistema.
      */
+    @Transactional
     public LineaPedidoResponseDto add(long idVendedor, long idCliente, long idPedido,
-                                      long idProducto, int cantidad, Double precio, Integer grupo) {
+                                      long idProducto, int cantidad, BigDecimal precio, Integer grupo) {
         // Validar existencia de vendedor
 
         Vendedor vendedor = vendedorRepository.findById(idVendedor);
@@ -45,7 +48,7 @@ public class LineaPedidoService {
         Cliente cliente = clienteRepository.findById(idCliente);
         if (cliente == null)
             throw new RuntimeException("Cliente inexistente");
-        if (cliente.getVendedor().getId() != idVendedor)
+        if (!cliente.getVendedor().getId().equals(idVendedor))
             throw new RuntimeException("El cliente no pertenece al vendedor indicado");
 
         // Obtener pedido directo desde repositorio
@@ -56,7 +59,7 @@ public class LineaPedidoService {
             throw new RuntimeException("El pedido ya está finalizado");
 
         // Validar que el pedido pertenece al cliente correcto
-        if (pedido.getCliente() == null || pedido.getCliente().getId() != idCliente)
+        if (pedido.getCliente() == null || !pedido.getCliente().getId().equals(idCliente))
             throw new RuntimeException("El pedido no pertenece al cliente indicado");
 
         // Validar producto
@@ -74,9 +77,8 @@ public class LineaPedidoService {
             throw new IllegalArgumentException("La cantidad debe ser mayor a 0");
         if (precio == null)
             precio = producto.getPrecio();
-        else if (precio < 0)
+        else if (precio.compareTo(BigDecimal.ZERO) < 0)
             throw new IllegalArgumentException("El precio debe ser mayor o igual a 0");
-
         //Validar grupo dentro del rango
         Integer grupoMax = paramService.getGrupoMax();
         if (grupo != null)
@@ -92,30 +94,31 @@ public class LineaPedidoService {
         if (grupo != null)
             linea.setGrupo(grupo);
 
-        BigDecimal bdCantidad = BigDecimal.valueOf(cantidad);
-        BigDecimal bdPrecio = BigDecimal.valueOf(precio);
-        BigDecimal subtotal = bdCantidad.multiply(bdPrecio);
+        BigDecimal subtotal = precio.multiply(BigDecimal.valueOf(cantidad));
+        subtotal = subtotal.setScale(2, RoundingMode.HALF_UP);
 
         // Guardar forzando sincronización del contexto
         LineaPedido saved = lineaPedidoRepository.saveAndFlush(linea);
 
         pedido.setBrutoTotal(
-                pedido.getBrutoTotal().add(subtotal)
+                pedido.getBrutoTotal().add(subtotal).setScale(2, RoundingMode.HALF_UP)
         );
 
         pedidoRepository.save(pedido);
 
         return new LineaPedidoResponseDto(saved);
     }
+
+    @Transactional
     public LineaPedidoResponseDto add(long idCliente, long idPedido, long idProducto,
-                                      int cantidad, Double precio, Integer grupo) {
+                                      int cantidad, BigDecimal precio, Integer grupo) {
         Cliente cliente = clienteRepository.findById(idCliente);
         if (cliente == null)
             throw new RuntimeException("Cliente inexistente");
         Pedido pedido = pedidoRepository.findById(idPedido);
         if (pedido == null)
             throw new RuntimeException("Pedido inexistente");
-        else if (pedido.getCliente().getId() != idCliente)
+        else if (!pedido.getCliente().getId().equals(idCliente))
             throw new RuntimeException("El pedido no pertenece al cliente indicado");
 
         if (pedido.isFinalizado())
@@ -135,7 +138,7 @@ public class LineaPedidoService {
             throw new IllegalArgumentException("La cantidad debe ser mayor a 0");
         if (precio == null)
             precio = producto.getPrecio();
-        else if (precio < 0)
+        else if (precio.compareTo(BigDecimal.ZERO) < 0)
             throw new IllegalArgumentException("El precio debe ser mayor o igual a 0");
 
         //Validar grupo dentro del rango
@@ -153,15 +156,14 @@ public class LineaPedidoService {
         if (grupo != null)
             linea.setGrupo(grupo);
 
-        BigDecimal bdCantidad = BigDecimal.valueOf(cantidad);
-        BigDecimal bdPrecio = BigDecimal.valueOf(precio);
-        BigDecimal subtotal = bdCantidad.multiply(bdPrecio);
+        BigDecimal subtotal = precio.multiply(BigDecimal.valueOf(cantidad));
+        subtotal = subtotal.setScale(2, RoundingMode.HALF_UP);
 
         // Guardar forzando sincronización del contexto
         LineaPedido saved = lineaPedidoRepository.saveAndFlush(linea);
 
         pedido.setBrutoTotal(
-                pedido.getBrutoTotal().add(subtotal)
+                pedido.getBrutoTotal().add(subtotal).setScale(2, RoundingMode.HALF_UP)
         );
 
         pedidoRepository.save(pedido);
@@ -205,7 +207,8 @@ public class LineaPedidoService {
     /**
      * Actualizar una línea de pedido existente.
      */
-    public LineaPedidoResponseDto update(long id, Integer cantidad, Double precio, Long idVendedor) {
+    @Transactional
+    public LineaPedidoResponseDto update(long id, Integer cantidad, BigDecimal precio, Long idVendedor) {
         LineaPedido linea = lineaPedidoRepository.findById(id);
         if (linea == null)
             throw new RuntimeException("Línea no encontrada");
@@ -213,45 +216,51 @@ public class LineaPedidoService {
         Pedido pedido = pedidoRepository.findById((long) linea.getPedido().getId());
         if (pedido.isFinalizado())
             throw new RuntimeException("Pedido finalizado");
-        if(idVendedor != null)
+
+        if (idVendedor != null)
             if (!Objects.equals(pedido.getCliente().getVendedor().getId(), idVendedor))
                 throw new RuntimeException("No tiene permisos para editar este pedido");
 
-        BigDecimal oldQty = BigDecimal.valueOf(linea.getCantidad());
-        BigDecimal oldPrice = BigDecimal.valueOf(linea.getPrecio());
-        BigDecimal oldSubtotal = oldQty.multiply(oldPrice);
+        BigDecimal oldSubtotal = linea.getPrecio()
+                .multiply(BigDecimal.valueOf(linea.getCantidad()))
+                .setScale(2, RoundingMode.HALF_UP);
 
-        if (cantidad != null && cantidad > 0)
+        if (cantidad != null) {
+            if (cantidad <= 0) throw new IllegalArgumentException("La cantidad debe ser mayor a 0");
             linea.setCantidad(cantidad);
+        }
 
-        if (precio != null && precio > 0)
+        if (precio != null) {
+            if (precio.compareTo(BigDecimal.ZERO) < 0)
+                throw new IllegalArgumentException("El precio debe ser mayor o igual a 0");
             linea.setPrecio(precio);
+        }
 
         linea = lineaPedidoRepository.save(linea);
 
-
-        BigDecimal newQty = BigDecimal.valueOf(linea.getCantidad());
-        BigDecimal newPrice = BigDecimal.valueOf(linea.getPrecio());
-        BigDecimal newSubtotal = newQty.multiply(newPrice);
+        BigDecimal newSubtotal = linea.getPrecio()
+                .multiply(BigDecimal.valueOf(linea.getCantidad()))
+                .setScale(2, RoundingMode.HALF_UP);
 
         pedido.setBrutoTotal(
                 pedido.getBrutoTotal()
                         .subtract(oldSubtotal)
                         .add(newSubtotal)
+                        .setScale(2, RoundingMode.HALF_UP)
         );
 
         pedidoRepository.save(pedido);
 
         return new LineaPedidoResponseDto(linea);
     }
-
     /**
      * Eliminar una línea de pedido.
      */
+    @Transactional
     public void delete(long idCliente, long idPedido, long idLinea) {
         Pedido pedido = pedidoRepository.findById(idPedido);
-        if (pedido == null || pedido.isFinalizado())
-            throw new RuntimeException("Pedido finalizado");
+        if (pedido == null)
+            throw new RuntimeException("Pedido no encontrado");
 
         Cliente cliente = clienteRepository.findById(idCliente);
         if (cliente == null || cliente.getVendedor() == null)
@@ -259,15 +268,17 @@ public class LineaPedidoService {
 
 
         LineaPedido linea = lineaPedidoRepository.findById(idLinea);
-        if (linea == null || linea.getPedido() == null || linea.getPedido().getId() != idPedido)
+        if (linea == null || linea.getPedido() == null || !linea.getPedido().getId().equals(idPedido))
             throw new RuntimeException("Linea no encontrada");
 
         BigDecimal qty = BigDecimal.valueOf(linea.getCantidad());
-        BigDecimal price = BigDecimal.valueOf(linea.getPrecio());
-        BigDecimal subtotal = qty.multiply(price);
+        BigDecimal price = linea.getPrecio();
+        BigDecimal subtotal = qty.multiply(price).setScale(2, RoundingMode.HALF_UP);
+
 
         pedido.setBrutoTotal(
                 pedido.getBrutoTotal().subtract(subtotal)
+                        .setScale(2, RoundingMode.HALF_UP)
         );
 
         pedidoRepository.save(pedido);
@@ -284,24 +295,57 @@ public class LineaPedidoService {
             throw new RuntimeException("Pedido finalizado");
 
         Cliente cliente = clienteRepository.findById(idCliente);
-        if (cliente == null || cliente.getVendedor() == null || cliente.getVendedor().getId() != idVendedor)
+        if (cliente == null || cliente.getVendedor() == null || !cliente.getVendedor().getId().equals(idVendedor))
             throw new RuntimeException("No tiene permisos para editar este pedido");
 
 
         LineaPedido linea = lineaPedidoRepository.findById(idLinea);
-        if (linea == null || linea.getPedido() == null || linea.getPedido().getId() != idPedido)
+        if (linea == null || linea.getPedido() == null || !linea.getPedido().getId().equals(idPedido))
             throw new RuntimeException("Linea no encontrada");
 
         BigDecimal qty = BigDecimal.valueOf(linea.getCantidad());
-        BigDecimal price = BigDecimal.valueOf(linea.getPrecio());
-        BigDecimal subtotal = qty.multiply(price);
+        BigDecimal price = linea.getPrecio();
+        BigDecimal subtotal = qty.multiply(price).setScale(2, RoundingMode.HALF_UP);
 
         pedido.setBrutoTotal(
                 pedido.getBrutoTotal().subtract(subtotal)
+                        .setScale(2, RoundingMode.HALF_UP)
         );
 
         pedidoRepository.save(pedido);
 
         lineaPedidoRepository.deleteById(idLinea);
+    }
+
+    public LineaPedidoResponseDto putStockFinal(Long idLinea, Integer stockFinal, Long idVendedor) {
+        if (idLinea == null || stockFinal == null){
+            throw new RuntimeException("Linea no encontrada o stock invalido");
+        }
+
+        LineaPedido linea = lineaPedidoRepository.findById(idLinea).orElse(null);
+        if (linea == null){
+            throw new RuntimeException("Linea no encontrada");
+        }
+
+        if (idVendedor != null){
+            if (!linea.getPedido().getCliente().getVendedor().getId().equals(idVendedor)){
+                throw new RuntimeException("Vendedor no encontrado");
+            }
+        }
+        Pedido pedido = pedidoRepository.findById(linea.getPedido().getId()).orElse(null);
+        if (pedido == null){
+            throw new RuntimeException("Pedido no encontrado");
+        }
+        if (pedido.isFinalizado()){
+            throw new RuntimeException("Pedido finalizado");
+        }
+        if (stockFinal < 0 || stockFinal > linea.getCantidad()){
+            throw new RuntimeException("Stock Final invalido");
+        }
+
+        linea.setStockFinal(stockFinal);
+        lineaPedidoRepository.save(linea);
+        return new LineaPedidoResponseDto(linea);
+
     }
 }

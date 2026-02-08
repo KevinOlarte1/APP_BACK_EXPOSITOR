@@ -155,18 +155,29 @@ public class LineaPedidoController {
         var email = auth.getName();
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
         Long idVendedor = u.getId();
+        if (u.getRoles().contains(Role.ADMIN)) {
+            return ResponseEntity.ok(lineaPedidoService.update(idLinea, lineaDto.getCantidad(), lineaDto.getPrecio(), null));
+        }
         return ResponseEntity.ok(lineaPedidoService.update(idLinea, lineaDto.getCantidad(), lineaDto.getPrecio(), idVendedor));
     }
 
-    @PutMapping("/{idLinea}/admin")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<LineaPedidoResponseDto> updateLinea(
+    @PutMapping("/{idLinea}/stock")
+    public ResponseEntity<LineaPedidoResponseDto> putStockFinal(
+            Authentication auth,
             @PathVariable Long idCliente,
             @PathVariable Long idPedido,
             @PathVariable Long idLinea,
             @RequestBody LineaPedidoDto lineaDto){
-        return ResponseEntity.ok(lineaPedidoService.update(idLinea, lineaDto.getCantidad(), lineaDto.getPrecio(), null));
+        var email = auth.getName();
+        Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
+        Long idVendedor = u.getId();
+        if (u.getRoles().contains(Role.ADMIN)) {
+            return ResponseEntity.ok(lineaPedidoService.putStockFinal(idLinea, lineaDto.getStockFinal(), null));
+        }
+        return ResponseEntity.ok(lineaPedidoService.putStockFinal(idLinea, lineaDto.getStockFinal(), idVendedor));
+
     }
+
 
     /**
      * Eliminar una linea de un pedido.
@@ -188,20 +199,15 @@ public class LineaPedidoController {
         var email = auth.getName();
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
         Long idVendedor = u.getId();
-        lineaPedidoService.delete(idVendedor, idCliente, idPedido, idLinea);
+        if (u.getRoles().contains(Role.ADMIN)) {
+            lineaPedidoService.delete(idCliente, idPedido, idLinea);
+        }
+        else
+            lineaPedidoService.delete(idVendedor, idCliente, idPedido, idLinea);
         return ResponseEntity.noContent().build();
     }
 
-    @DeleteMapping("/admin/{idLinea}")
-    @Operation(summary = "Eliminar una linea de un pedido", description = "Elimina una linea de un pedido")
-    @ApiResponse(responseCode = "204", description = "Linea de pedido eliminada", content = @Content)
-    public ResponseEntity<Void> deleteAllLineas(
-            @PathVariable Long idCliente,
-            @PathVariable Long idPedido,
-            @PathVariable Long idLinea){
-        lineaPedidoService.delete(idCliente, idPedido, idLinea);
-        return ResponseEntity.noContent().build();
-    }
+
 
 
 

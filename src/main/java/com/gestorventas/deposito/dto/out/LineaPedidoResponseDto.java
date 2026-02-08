@@ -4,6 +4,8 @@ import com.gestorventas.deposito.models.LineaPedido;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 /**
  * DTO de salida para representar los datos públicos de una Linea de pedido del sistema.
  * <p>
@@ -20,8 +22,9 @@ public class LineaPedidoResponseDto {
     private Long idPedido;
     private Long idProducto;
     private Integer cantidad;
-    private Double precio;
+    private BigDecimal precio;
     private Integer grupo;
+    private Integer stockFinal;
 
     public LineaPedidoResponseDto(LineaPedido lineaPedido) {
         this.id = lineaPedido.getId();
@@ -30,5 +33,6 @@ public class LineaPedidoResponseDto {
         this.cantidad = lineaPedido.getCantidad();
         this.precio = lineaPedido.getPrecio();
         this.grupo = lineaPedido.getGrupo();
+        this.stockFinal = lineaPedido.getStockFinal();
     }
 }
