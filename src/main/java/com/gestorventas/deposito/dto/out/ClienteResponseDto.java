@@ -23,6 +23,8 @@ public class ClienteResponseDto {
     private Long id;
     private String cif;
     private String nombre;
+    private String telefono;
+    private String email;
     private Long idVendedor;
     private List<Long> idPedidos = new ArrayList<>();
     private int pedidosCerrados;
@@ -32,6 +34,8 @@ public class ClienteResponseDto {
         this.id = cliente.getId();
         this.cif = cliente.getCif();
         this.nombre = cliente.getNombre();
+        this.telefono = cliente.getTelefono() == null ? "" : cliente.getTelefono();
+        this.email = cliente.getEmail() == null ? "" : cliente.getEmail();
         this.idVendedor = cliente.getVendedor().getId();
         cliente.getPedidos().forEach(pedido ->{
             if (pedido.isFinalizado())

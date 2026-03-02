@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface CategoriaRepository extends JpaRepository<Categoria,Long> {
@@ -15,4 +16,8 @@ public interface CategoriaRepository extends JpaRepository<Categoria,Long> {
     Categoria findByNombre(String nombre);
 
     List<Categoria> findAllByActivo(boolean activo);
+
+    Optional<Categoria> findByNombreIgnoreCase(String nombre);
+
+    boolean existsByNombreIgnoreCase(String nombre);
 }

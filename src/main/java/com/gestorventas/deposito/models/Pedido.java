@@ -62,6 +62,12 @@ public class Pedido {
     @Column(nullable = false)
     private BigDecimal brutoTotal;
 
+    /**
+     * Comentario del pedido.
+     */
+    private String comentario;
+
+
 
     public Pedido(int descuento, int iva){
         this.fecha = LocalDate.now();
@@ -69,6 +75,7 @@ public class Pedido {
         this.descuento = descuento;
         this.iva = iva;
         this.brutoTotal = BigDecimal.ZERO;
+        this.comentario = "";
     }
 
     public Pedido(){
@@ -77,6 +84,7 @@ public class Pedido {
         this.descuento = 0;
         this.iva = 0;
         this.brutoTotal = BigDecimal.ZERO;
+        this.comentario = "";
     }
 
     @Override

@@ -1,6 +1,8 @@
 package com.gestorventas.deposito.services;
 
+import com.gestorventas.deposito.config.exceptions.ImportException;
 import com.gestorventas.deposito.dto.out.CategoriaResponseDto;
+import com.gestorventas.deposito.dto.out.ImportErrorResponseDto;
 import com.gestorventas.deposito.models.Cliente;
 import com.gestorventas.deposito.models.Pedido;
 import com.gestorventas.deposito.models.Vendedor;
@@ -8,6 +10,7 @@ import com.gestorventas.deposito.models.producto.Categoria;
 import com.gestorventas.deposito.repositories.CategoriaRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.BufferedReader;
@@ -93,67 +96,99 @@ public class CategoriaService {
         categoriaRepository.save(categoria);
     }
 
-    public int importarCsvCategorias(MultipartFile file) throws IOException {
+    @Transactional(rollbackFor = { ImportException.class, Exception.class })
+    public int importarCsvCategorias(MultipartFile file) throws Exception {
 
         if (file == null || file.isEmpty()) {
-            throw new RuntimeException("El archivo CSV está vacío");
+            throw new ImportException(new ImportErrorResponseDto("0", "El archivo CSV está vacío"));
         }
 
-        // 1) Parse + validación SIN tocar BD
-        List<Categoria> nuevas = new ArrayList<>();
-        Set<String> nombresEnCsv = new HashSet<>();
+        int importadas = 0;
 
         try (BufferedReader br = new BufferedReader(
                 new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
 
-            // Cabecera
+            // ================================
+            // 1) CABECERA OBLIGATORIA
+            // ================================
             String header = br.readLine();
             if (header == null) {
-                throw new RuntimeException("El archivo CSV está vacío");
+                throw new ImportException(new ImportErrorResponseDto("0", "El CSV no contiene cabecera"));
             }
 
+            String headerEsperado = "id;nombre";
+            if (!header.trim().equalsIgnoreCase(headerEsperado)) {
+                throw new ImportException(new ImportErrorResponseDto(
+                        "0",
+                        "Cabecera incorrecta. Debe ser: " + headerEsperado
+                ));
+            }
+
+            // ================================
+            // 2) PROCESAR LÍNEAS
+            // ================================
             String linea;
-            int numLinea = 1; // header = 1
+            int numLinea = 1;
 
             while ((linea = br.readLine()) != null) {
                 numLinea++;
 
-                // Opcional: saltar líneas en blanco
                 if (linea.trim().isEmpty()) continue;
 
-                String[] campos = linea.split(";", -1); // -1 mantiene vacíos
-                if (campos.length < 2) {
-                    throw new RuntimeException("Formato inválido en línea " + numLinea + " (se esperaban al menos 2 columnas)");
+                String[] campos = linea.split(";", -1);
+                if (campos.length != 2) {
+                    throw new ImportException(new ImportErrorResponseDto(
+                            safe(campos, 0),
+                            "Formato incorrecto en línea " + numLinea + " (se esperaban 2 campos)"
+                    ));
                 }
 
-                String nombre = campos[1] == null ? "" : campos[1].trim().toUpperCase();
+                String idStr = campos[0].trim();
+                String nombre = campos[1].trim();
 
                 if (nombre.isEmpty()) {
-                    throw new RuntimeException("El nombre de la categoría no puede estar vacío (línea " + numLinea + ")");
+                    throw new ImportException(new ImportErrorResponseDto(
+                            idStr,
+                            "Nombre vacío en línea " + numLinea
+                    ));
                 }
 
-                // Unicidad dentro del CSV
-                if (!nombresEnCsv.add(nombre)) {
-                    throw new RuntimeException("Nombre de categoría duplicado en el CSV: '" + nombre + "' (línea " + numLinea + ")");
+                String nombreUpper = nombre.toUpperCase().trim();
+
+                // Unicidad (ajusta el método si tu repo se llama distinto)
+                if (categoriaRepository.existsByNombreIgnoreCase(nombreUpper)) {
+                    throw new ImportException(new ImportErrorResponseDto(
+                            idStr,
+                            "Ya existe una categoría con nombre '" + nombreUpper + "'"
+                    ));
                 }
 
+                // Crear categoría (como me pediste)
                 Categoria c = new Categoria();
-                c.setNombre(nombre);
+                c.setNombre(nombreUpper);
                 c.setActivo(true);
-                nuevas.add(c);
+
+                try {
+                    categoriaRepository.save(c);
+                } catch (Exception e) {
+                    throw new ImportException(new ImportErrorResponseDto(
+                            idStr,
+                            "Error guardando categoría en línea " + numLinea + ": " + e.getMessage()
+                    ));
+                }
+
+                importadas++;
             }
         }
 
-        if (nuevas.isEmpty()) {
-            throw new RuntimeException("El CSV no contiene categorías válidas para importar");
-        }
-
-        // 2) Replace total (solo si todo validó)
-        categoriaRepository.deleteAll();
-        categoriaRepository.saveAll(nuevas);
-
-        return nuevas.size();
+        return importadas;
     }
+
+    private String safe(String[] arr, int index) {
+        if (arr == null || index >= arr.length) return "";
+        return arr[index] == null ? "" : arr[index].trim();
+    }
+
 
     public byte[] exportCategoriasCsv() {
         StringBuilder csv = new StringBuilder();

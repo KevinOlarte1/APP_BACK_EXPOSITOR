@@ -32,6 +32,12 @@ public class Cliente {
     @Column(nullable = false)
     private String nombre;
 
+    @Column
+    private String telefono;
+
+    @Column
+    private String email;
+
     /**
      * Vendedor asignado a este cliente.
      */

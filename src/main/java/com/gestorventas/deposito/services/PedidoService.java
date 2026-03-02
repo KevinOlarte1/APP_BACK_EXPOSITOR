@@ -29,6 +29,7 @@ import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -160,11 +161,12 @@ public class PedidoService {
      */
     public PedidoResponseDto update(
             long id,
-            long idVendedor,
+            Long idVendedor,
             long idCliente,
             LocalDate fecha,
             Integer descuento,
-            Integer iva
+            Integer iva,
+            String comentario
     ) {
 
         Pedido pedido = pedidoRepository.findById(id);
@@ -173,9 +175,9 @@ public class PedidoService {
 
         if (pedido.getCliente().getId() != idCliente)
             throw new RuntimeException("El pedido no pertenece al cliente");
-
-        if (pedido.getCliente().getVendedor().getId() != idVendedor)
-            throw new RuntimeException("No tienes permiso para modificar este pedido");
+        if (idVendedor != null)
+            if (!Objects.equals(pedido.getCliente().getVendedor().getId(), idVendedor))
+                throw new RuntimeException("No tienes permiso para modificar este pedido");
 
         // Actualizar fecha si se envía
         if (fecha != null) {
@@ -191,6 +193,8 @@ public class PedidoService {
         if (iva != null && iva >= 0) {
             pedido.setIva(iva);
         }
+
+        pedido.setComentario(comentario);
 
         pedido = pedidoRepository.save(pedido);
 
@@ -312,14 +316,15 @@ public class PedidoService {
      * @param idPedido identificador pedido a generar el informe.
      * @return byte[] con el informe generado.
      */
-    public byte[] generarInformePdf(long idPedido,long idCliente, long idVendedor) {
+    public byte[] generarInformePdf(long idPedido,long idCliente, Long idVendedor) {
         Pedido pedido = pedidoRepository.findById(idPedido);
         if (pedido == null)
             throw new RuntimeException("Pedido inexistente");
         if (!pedido.getCliente().getId().equals(idCliente))
             throw new RuntimeException("Cliente inexistente");
-        if (!pedido.getCliente().getVendedor().getId().equals(idVendedor))
-            throw new RuntimeException("Vendedor inexistente");
+        if (idVendedor != null)
+            if (!pedido.getCliente().getVendedor().getId().equals(idVendedor))
+                throw new RuntimeException("Vendedor inexistente");
         if (!pedido.isFinalizado())
             throw new RuntimeException("El pedido no ha sido finalizado");
 
@@ -404,4 +409,6 @@ public class PedidoService {
         return ("\uFEFF" + csv).getBytes(StandardCharsets.UTF_8);
 
     }
+
+
 }

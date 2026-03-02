@@ -10,4 +10,5 @@ public class UpdatePedidoRequestDto {
     private LocalDate fecha;
     private Integer descuento;
     private Integer iva;
+    private String comentario;
 }

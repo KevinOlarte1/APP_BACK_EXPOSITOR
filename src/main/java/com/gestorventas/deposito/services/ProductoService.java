@@ -1,6 +1,8 @@
 package com.gestorventas.deposito.services;
 
+import com.gestorventas.deposito.config.exceptions.ImportException;
 import com.gestorventas.deposito.dto.in.ProductoDto;
+import com.gestorventas.deposito.dto.out.ImportErrorResponseDto;
 import com.gestorventas.deposito.dto.out.ProductoResponseDto;
 import com.gestorventas.deposito.models.producto.Categoria;
 import com.gestorventas.deposito.models.producto.Producto;
@@ -11,6 +13,7 @@ import com.gestorventas.deposito.repositories.VendedorRepository;
 import com.gestorventas.deposito.specifications.ProductosSpecifications;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.BufferedReader;
@@ -112,16 +115,14 @@ public class ProductoService {
 
     }
 
-    public ProductoResponseDto update(Long id, ProductoDto productoDto) {
-        if (id == null) {
-            return null;
-        }
-        Producto producto = productoRepository.findById((long)id);
+    public ProductoResponseDto update(long id, ProductoDto productoDto) {
+
+        Producto producto = productoRepository.findById(id);
         if (producto == null) {
-            return null;
+            throw new IllegalArgumentException("Producto no encontrado");
         }
         if (!producto.isActivo()) {
-            return null;
+            throw  new IllegalArgumentException("Producto no encontrado.");
         }
         if (productoDto.getDescripcion() != null) {
             producto.setDescripcion(productoDto.getDescripcion());
@@ -182,29 +183,79 @@ public class ProductoService {
     }
 
     /**
-     * Exporta a la base de datos productos a partir de un archivo CSV.
-     * @param file fichero csv con los productos.
-     * @return numero de productos insertados.
-     * @throws IOException problemas con la lectura del fichero.
+     * Importa productos desde un archivo CSV.
+     *
+     * <p><strong>Formato obligatorio del CSV:</strong></p>
+     * <pre>
+     * id;descripcion;precio;categoria
+     * </pre>
+     *
+     * <ul>
+     *     <li>La primera línea debe ser obligatoriamente la cabecera exacta:
+     *         <code>id;descripcion;precio;categoria</code>.</li>
+     *     <li>El delimitador utilizado debe ser el carácter <code>;</code>.</li>
+     *     <li>Cada línea debe contener exactamente 4 campos.</li>
+     * </ul>
+     *
+     * <p><strong>Validaciones aplicadas por cada registro:</strong></p>
+     * <ul>
+     *     <li>El ID debe ser numérico válido.</li>
+     *     <li>La descripción no puede estar vacía.</li>
+     *     <li>El precio debe ser un valor numérico mayor que 0.</li>
+     *     <li>El producto no debe existir previamente en la base de datos.</li>
+     *     <li>La categoría indicada debe existir en la base de datos.</li>
+     * </ul>
+     *
+     * <p><strong>Comportamiento transaccional:</strong></p>
+     * <ul>
+     *     <li>La operación es atómica (transaccional).</li>
+     *     <li>Si cualquier registro produce un error, se cancela completamente la importación.</li>
+     *     <li>En caso de error se lanza {@link ImportException} con información
+     *         del registro que causó el fallo.</li>
+     * </ul>
+     *
+     * @param file archivo CSV recibido como {@link MultipartFile}
+     * @return número total de productos importados correctamente
+     * @throws ImportException si ocurre cualquier error de validación o persistencia.
+     * @throws Exception si ocurre un error de lectura del archivo.
      */
+
+    @Transactional(rollbackFor = {ImportException.class, IOException.class})
     public int importarCsvProductos(MultipartFile file) throws IOException {
 
         if (file == null || file.isEmpty()) {
-            throw new RuntimeException("El archivo CSV está vacío");
+            throw new ImportException(
+                    new ImportErrorResponseDto("0", "El archivo CSV está vacío")
+            );
         }
 
-        List<Producto> nuevos = new ArrayList<>();
-        Set<String> descripcionesEnCsv = new HashSet<>();
+        int importados = 0;
 
         try (BufferedReader br = new BufferedReader(
                 new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
 
-            // Cabecera
+            // ================================
+            // 1️⃣ CABECERA OBLIGATORIA
+            // ================================
             String header = br.readLine();
             if (header == null) {
-                throw new RuntimeException("El archivo CSV está vacío");
+                throw new ImportException(
+                        new ImportErrorResponseDto("0", "El CSV no contiene cabecera")
+                );
             }
 
+            String headerEsperado = "id;descripcion;precio;categoria";
+
+            if (!header.trim().equalsIgnoreCase(headerEsperado)) {
+                throw new ImportException(
+                        new ImportErrorResponseDto("0",
+                                "Cabecera incorrecta. Debe ser: " + headerEsperado)
+                );
+            }
+
+            // ================================
+            // 2️⃣ PROCESAR LÍNEAS
+            // ================================
             String linea;
             int numLinea = 1;
 
@@ -214,48 +265,91 @@ public class ProductoService {
                 if (linea.trim().isEmpty()) continue;
 
                 String[] campos = linea.split(";", -1);
-                if (campos.length < 4) {
-                    throw new RuntimeException("Formato inválido en línea " + numLinea + " (mínimo 4 columnas)");
+
+                if (campos.length != 4) {
+                    throw new ImportException(
+                            new ImportErrorResponseDto(
+                                    safe(campos, 0),
+                                    "Formato incorrecto en línea " + numLinea
+                            )
+                    );
                 }
 
-                // --- PARSEO ---
-                // Si no usas id, puedes ignorarlo; lo dejo por compatibilidad
-                String idStr = campos[0].trim(); // no usado
-                String descripcion = campos[1].trim().toUpperCase();
+                String idStr = campos[0].trim();
+                String descripcion = campos[1].trim();
                 String precioStr = campos[2].trim();
-                String categoriaNombre = campos[3].trim().toUpperCase();
+                String categoriaStr = campos[3].trim();
+
+                // ================================
+                // VALIDACIONES
+                // ================================
+
+                Long id;
+                try {
+                    id = Long.parseLong(idStr);
+                } catch (Exception e) {
+                    throw new ImportException(
+                            new ImportErrorResponseDto(idStr,
+                                    "ID inválido en línea " + numLinea)
+                    );
+                }
 
                 if (descripcion.isEmpty()) {
-                    throw new RuntimeException("Descripción vacía en línea " + numLinea);
-                }
-
-                // Descripción única dentro del CSV
-                if (!descripcionesEnCsv.add(descripcion)) {
-                    throw new RuntimeException("Descripción duplicada en el CSV: '" + descripcion + "' (línea " + numLinea + ")");
-                }
-
-                if (categoriaNombre.isEmpty()) {
-                    throw new RuntimeException("Categoría vacía en línea " + numLinea);
+                    throw new ImportException(
+                            new ImportErrorResponseDto(idStr,
+                                    "Descripción vacía en línea " + numLinea)
+                    );
                 }
 
                 BigDecimal precio;
                 try {
                     precio = new BigDecimal(precioStr.replace(",", "."));
-                } catch (NumberFormatException e) {
-                    throw new RuntimeException("Precio inválido '" + precioStr + "' en línea " + numLinea);
+                } catch (Exception e) {
+                    throw new ImportException(
+                            new ImportErrorResponseDto(idStr,
+                                    "Precio inválido en línea " + numLinea)
+                    );
                 }
-                precio = precio.setScale(2, RoundingMode.HALF_UP);
 
                 if (precio.compareTo(BigDecimal.ZERO) <= 0) {
-                    throw new RuntimeException("Precio debe ser mayor que 0 en línea " + numLinea);
+                    throw new ImportException(
+                            new ImportErrorResponseDto(idStr,
+                                    "El precio debe ser mayor que 0 en línea " + numLinea)
+                    );
                 }
 
-                // Validar que la categoría existe
-                Categoria categoria = categoriaRepository.findByNombre(categoriaNombre);
-                if (categoria == null) {
-                    throw new RuntimeException("No existe la categoría '" + categoriaNombre + "' (línea " + numLinea + ")");
+                if (categoriaStr.isEmpty()) {
+                    throw new ImportException(
+                            new ImportErrorResponseDto(idStr,
+                                    "Categoría vacía en línea " + numLinea)
+                    );
                 }
 
+                // ================================
+                // PRODUCTO NO EXISTE
+                // ================================
+                if (productoRepository.existsById(id)) {
+                    throw new ImportException(
+                            new ImportErrorResponseDto(idStr,
+                                    "El producto ya existe en la base de datos")
+                    );
+                }
+
+                // ================================
+                // CATEGORÍA DEBE EXISTIR
+                // ================================
+                Categoria categoria = categoriaRepository
+                        .findByNombreIgnoreCase(categoriaStr)
+                        .orElseThrow(() ->
+                                new ImportException(
+                                        new ImportErrorResponseDto(idStr,
+                                                "La categoría '" + categoriaStr + "' no existe")
+                                )
+                        );
+
+                // ================================
+                // CREAR PRODUCTO CON BUILDER
+                // ================================
                 Producto producto = Producto.builder()
                         .descripcion(descripcion)
                         .precio(precio)
@@ -263,20 +357,25 @@ public class ProductoService {
                         .activo(true)
                         .build();
 
-                nuevos.add(producto);
+                try {
+                    productoRepository.save(producto);
+                } catch (Exception e) {
+                    throw new ImportException(
+                            new ImportErrorResponseDto(idStr,
+                                    "Error guardando producto: " + e.getMessage())
+                    );
+                }
 
+                importados++;
             }
         }
 
-        if (nuevos.isEmpty()) {
-            throw new RuntimeException("El CSV no contiene productos válidos para importar");
-        }
+        return importados;
+    }
 
-        // ✅ Replace total SOLO si todo validó
-        productoRepository.deleteAll();
-        productoRepository.saveAll(nuevos);
-
-        return nuevos.size();
+    private String safe(String[] arr, int index) {
+        if (arr == null || index >= arr.length) return "";
+        return arr[index] == null ? "" : arr[index].trim();
     }
 
 }

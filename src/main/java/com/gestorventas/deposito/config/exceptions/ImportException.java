@@ -1,21 +1,18 @@
 package com.gestorventas.deposito.config.exceptions;
 
+import com.gestorventas.deposito.dto.out.ImportErrorResponseDto;
+import lombok.Getter;
+
 import java.io.IOException;
 import java.util.List;
 
+@Getter
 public class ImportException extends IOException {
-    private final List<Long> idErrors;
-    public ImportException(List<Long> idErrors) {
-        this.idErrors = idErrors;
+
+    private final ImportErrorResponseDto importErrorResponseDto;
+    public ImportException(ImportErrorResponseDto importErrorResponseDto) {
+        this.importErrorResponseDto = importErrorResponseDto;
     }
 
-    @Override
-    public String getMessage() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Los siguientes productos no se pudieron importar: \n");
-        for(Long x: idErrors){
-            sb.append(x).append("; ");
-        }
-        return sb.toString();
-    }
+
 }

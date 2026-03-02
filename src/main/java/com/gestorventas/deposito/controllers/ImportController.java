@@ -1,5 +1,6 @@
 package com.gestorventas.deposito.controllers;
 
+import com.gestorventas.deposito.config.exceptions.ImportException;
 import com.gestorventas.deposito.repositories.CategoriaRepository;
 import com.gestorventas.deposito.repositories.ClienteRepository;
 import com.gestorventas.deposito.repositories.LineaPedidoRepository;
@@ -44,8 +45,11 @@ public class ImportController {
             int insertados = productoService.importarCsvProductos(file);
             return ResponseEntity.ok("Productos importados: " + insertados);
 
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        } catch (ImportException e){
+            return ResponseEntity.badRequest().body(e.getImportErrorResponseDto());
+        }
+        catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body("Error procesando CSV: " + e.getMessage());
         }
     }
@@ -64,7 +68,10 @@ public class ImportController {
         try {
             int insertados = clienteService.importarCsvClientes(file);
             return ResponseEntity.ok("Clientes importados: " + insertados);
-        } catch (Exception e) {
+        } catch (ImportException e){
+            return  ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(e.getImportErrorResponseDto());
+        }catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error procesando CSV: " + e.getMessage());
         }
@@ -76,13 +83,15 @@ public class ImportController {
     )
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> importarCategorias(@RequestParam("file") MultipartFile file) {
-        System.out.println("Entra endPoint import categorias ---------------------------");
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().body("El archivo CSV está vacío");
         }
         try {
             int insertados = categoriaService.importarCsvCategorias(file);
             return ResponseEntity.ok("Clientes importados: " + insertados);
+        } catch (ImportException e){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(e.getImportErrorResponseDto());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error procesando CSV: " + e.getMessage());

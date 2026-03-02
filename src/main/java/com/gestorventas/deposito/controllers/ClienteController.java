@@ -60,7 +60,10 @@ public class ClienteController {
     ) {
         var email = auth.getName();
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
-        return ResponseEntity.status(HttpStatus.CREATED).body(clienteService.add(clienteDto.getNombre(), clienteDto.getCif(),u.getId()));
+        if (u.getRoles().contains(Role.ADMIN))
+            return ResponseEntity.status(HttpStatus.CREATED).body(clienteService.add(clienteDto.getNombre(), clienteDto.getCif(), clienteDto.getIdVendedor(), clienteDto.getTelefono(), clienteDto.getEmail()));
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(clienteService.add(clienteDto.getNombre(), clienteDto.getCif(),u.getId(), clienteDto.getTelefono(), clienteDto.getEmail()));
     }
 
 
@@ -152,7 +155,12 @@ public class ClienteController {
     ) {
         var email = auth.getName();
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
-        ClienteResponseDto cliente = clienteService.update(idCliente, dto.getNombre(), dto.getCif(), u.getId());
+        ClienteResponseDto cliente;
+        if (u.getRoles().contains(Role.ADMIN)) {
+            cliente = clienteService.update(idCliente, dto.getNombre(), dto.getCif(), dto.getIdVendedor(), dto.getTelefono(), dto.getEmail(), null);
+        }
+        else
+            cliente = clienteService.update(idCliente, dto.getNombre(), dto.getCif(), dto.getIdVendedor(), dto.getTelefono(), dto.getEmail(), u.getId());
         if (cliente == null)
             return ResponseEntity.notFound().build();
         return ResponseEntity.ok(cliente);

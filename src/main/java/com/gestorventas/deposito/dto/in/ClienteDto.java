@@ -18,4 +18,7 @@ import java.util.List;
 public class ClienteDto {
     private String cif;
     private String nombre;
+    private Long idVendedor;
+    private String telefono;
+    private String email;
 }

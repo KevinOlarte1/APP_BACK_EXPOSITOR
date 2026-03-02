@@ -49,9 +49,9 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
         // Admin principar -- PROPIETARIO
-        if (userRepository.findByEmail("josepfornes@gmail.com").isEmpty()){
-            userService.add("Josep", "Fornes", "1234", "josepfornes@gmail.com", Role.ADMIN);
-            System.out.println("Admin creado: josepfornes@gmail.com");
+        if (userRepository.findByEmail("josepfornesmarti@gmail.com").isEmpty()){
+            userService.add("Josep", "Fornes", "1234", "josepfornesmarti@gmail.com", Role.ADMIN);
+            System.out.println("Admin creado: josepfornesmarti@gmail.com");
         }
         // Admin tmp -- PROGRAMADOR
         if (userRepository.findByEmail(adminEmail).isEmpty()) {

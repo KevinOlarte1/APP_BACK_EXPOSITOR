@@ -41,4 +41,6 @@ public interface ClienteRepository extends JpaRepository<Cliente,Long>, JpaSpeci
     List<GastosCliente> getGastosClientesByVendedor(long idVendedor);
 
     Optional<Object> findByCif(String cif);
+
+    boolean existsByCifIgnoreCase(String cif);
 }

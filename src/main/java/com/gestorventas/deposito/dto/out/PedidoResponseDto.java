@@ -33,6 +33,7 @@ public class PedidoResponseDto {
         private String baseImponible;
         private String precioIva;
         private String total;
+        private String comentario;
 
     public PedidoResponseDto(Pedido pedido) {
         this.id = pedido.getId();
@@ -86,6 +87,8 @@ public class PedidoResponseDto {
                 .setScale(2, RoundingMode.HALF_UP);
 
         this.total = totalFinal.toString();
+
+        this.comentario = pedido.getComentario();
     }
 
 }

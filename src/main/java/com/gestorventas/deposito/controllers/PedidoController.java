@@ -135,7 +135,12 @@ public class PedidoController {
         var email = auth.getName();
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
         Long idVendedor = u.getId();
-        PedidoResponseDto pedido = pedidoService.update(id, idVendedor, idCliente, request.getFecha(),  request.getDescuento(), request.getIva());
+        PedidoResponseDto pedido;
+        if(u.getRoles().contains(Role.ADMIN))
+            pedido = pedidoService.update(id, null, idCliente, request.getFecha(), request.getDescuento(), request.getIva(), request.getComentario());
+        else
+            pedido = pedidoService.update(id, idVendedor, idCliente, request.getFecha(),  request.getDescuento(), request.getIva(), request.getComentario());
+
         return pedido != null ? ResponseEntity.ok(pedido) : ResponseEntity.notFound().build();
     }
 
@@ -204,14 +209,20 @@ public class PedidoController {
             @PathVariable Long idCliente,
             @PathVariable Long idPedido) {
         var email = auth.getName();
+        byte[] pdfBytes;
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
         Long idVendedor = u.getId();
+        if (u.getRoles().contains(Role.ADMIN)) {
+            pdfBytes = pedidoService.generarInformePdf(idPedido, idCliente, null);
+        }
 
-        byte[] pdfBytes = pedidoService.generarInformePdf(idPedido, idCliente, idVendedor);
+        pdfBytes = pedidoService.generarInformePdf(idPedido, idCliente, idVendedor);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=pedido-" + idPedido + ".pdf")
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdfBytes);
     }
+
+
 }
