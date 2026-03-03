@@ -160,7 +160,7 @@ public class ClienteController {
             cliente = clienteService.update(idCliente, dto.getNombre(), dto.getCif(), dto.getIdVendedor(), dto.getTelefono(), dto.getEmail(), null);
         }
         else
-            cliente = clienteService.update(idCliente, dto.getNombre(), dto.getCif(), dto.getIdVendedor(), dto.getTelefono(), dto.getEmail(), u.getId());
+            cliente = clienteService.update(idCliente, dto.getNombre(), dto.getCif(), null, dto.getTelefono(), dto.getEmail(), u.getId());
         if (cliente == null)
             return ResponseEntity.notFound().build();
         return ResponseEntity.ok(cliente);

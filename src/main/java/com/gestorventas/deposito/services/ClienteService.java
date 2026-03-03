@@ -154,8 +154,8 @@ public class ClienteService {
         if (email != null && esEmailValido(email))
             cliente.setEmail(email);
 
-
-        vendedorRepository.findById(idVededor).ifPresent(cliente::setVendedor);
+        if (idVededor != null)
+            vendedorRepository.findById(idVededor).ifPresent(cliente::setVendedor);
 
         return new ClienteResponseDto(clienteRepository.save(cliente));
     }

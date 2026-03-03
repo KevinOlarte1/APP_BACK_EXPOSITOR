@@ -186,6 +186,7 @@ public class PedidoController {
         var email = auth.getName();
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
         if(u.getRoles().contains(Role.ADMIN)){
+            System.out.println("ADMIN -------------");
             return ResponseEntity.ok(pedidoService.cerrarPedido(idCliente,id));
         }
         Long idVendedor = u.getId();
@@ -215,8 +216,10 @@ public class PedidoController {
         if (u.getRoles().contains(Role.ADMIN)) {
             pdfBytes = pedidoService.generarInformePdf(idPedido, idCliente, null);
         }
+        else{
+            pdfBytes = pedidoService.generarInformePdf(idPedido, idCliente, idVendedor);
+        }
 
-        pdfBytes = pedidoService.generarInformePdf(idPedido, idCliente, idVendedor);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=pedido-" + idPedido + ".pdf")

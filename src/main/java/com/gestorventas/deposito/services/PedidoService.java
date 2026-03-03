@@ -1,6 +1,7 @@
 package com.gestorventas.deposito.services;
 
 import com.gestorventas.deposito.dto.out.PedidoResponseDto;
+import com.gestorventas.deposito.enums.Role;
 import com.gestorventas.deposito.models.Cliente;
 import com.gestorventas.deposito.models.LineaPedido;
 import com.gestorventas.deposito.models.Vendedor;
@@ -27,10 +28,8 @@ import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.time.LocalDate;
+import java.util.*;
 import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
-import java.util.Optional;
 
 /**
  * Servicio encargado de gestionar la logica del negocio relacionado con los pedidos.
@@ -263,8 +262,16 @@ public class PedidoService {
         pedido = pedidoRepository.save(pedido);
 
         try{
-            mailService.enviarCorreoPedido(vendedor.getEmail(), pedido);
-            //mailService.enviarCorreoPedido(cliente.getEmail(), pedido);
+            Vendedor vadmin1 = vendedorRepository.findByEmail("gcholbi@gmail.com").orElse(null);
+            Vendedor vadmin2 = vendedorRepository.findByEmail("josepfornesmarti@gmail.com").orElse(null);
+            List<Vendedor> vendedores = new ArrayList<>();
+            if (vadmin1 != null)
+                vendedores.add(vadmin1);
+            if (vadmin2 != null)
+                vendedores.add(vadmin2);
+            vendedores.add(vendedor);
+            mailService.enviarCorreosPedido(vendedores, pedido);
+
         } catch (Exception e){
             System.out.println(e.getMessage());
         }
@@ -299,13 +306,20 @@ public class PedidoService {
 
 
         pedido = pedidoRepository.save(pedido);
-        /*
+        System.out.println("Cerrado correctamente !! ------------");
         try{
-            mailService.enviarCorreoPedido(cliente.getVendedor().getEmail(), pedido);
-            //mailService.enviarCorreoPedido(cliente.getEmail(), pedido);
+            List<Vendedor> vendedorEnviar = new ArrayList<Vendedor>();
+            Vendedor vendedorCliente = cliente.getVendedor();
+            vendedorEnviar.add(vendedorCliente);
+            vendedorRepository.findByEmail("gcholbi@gmail.com").ifPresent(vendedorEnviar::add);
+            vendedorRepository.findByEmail("josepfornesmarti@gmail.com").ifPresent(vendedorEnviar::add);
+
+            mailService.enviarCorreosPedido(vendedorEnviar, pedido);
+
+
         } catch (Exception e){
             System.out.println(e.getMessage());
-        } */
+        }
         return new PedidoResponseDto(pedido);
 
 
@@ -322,9 +336,11 @@ public class PedidoService {
             throw new RuntimeException("Pedido inexistente");
         if (!pedido.getCliente().getId().equals(idCliente))
             throw new RuntimeException("Cliente inexistente");
-        if (idVendedor != null)
+        if (idVendedor != null) {
             if (!pedido.getCliente().getVendedor().getId().equals(idVendedor))
                 throw new RuntimeException("Vendedor inexistente");
+        }
+
         if (!pedido.isFinalizado())
             throw new RuntimeException("El pedido no ha sido finalizado");
 
