@@ -38,6 +38,21 @@ public class    MailService {
         return email != null && EMAIL_PATTERN.matcher(email).matches();
     }
 
+    public void enviarPrueba() throws MessagingException {
+        String txt = "Hola mundo!";
+        MimeMessage mensaje = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(mensaje, true);
+
+        helper.setTo("kevinolarte.ko@gmail.com");
+        helper.setSubject("Prueba de mensaje");
+        helper.setText(txt, false);
+        helper.setFrom("tucorreo@empresa.com");
+
+        mailSender.send(mensaje);
+
+
+    }
+
     public void enviarCorreoPedido(String[] destinatario, Pedido pedido) throws MessagingException {
         String html = generarHtmlPedido(pedido);
         System.out.println("html generado");
