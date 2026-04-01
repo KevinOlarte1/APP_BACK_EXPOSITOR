@@ -54,6 +54,7 @@ public class ClienteService {
         if(clienteRepository.existsByCif(cif))
             throw new IllegalArgumentException("El cif ya existe");
 
+        System.out.println(telefono + "--------------------------");
         if (telefono == null || !esTelefonoValido(telefono))
             throw new IllegalArgumentException("El teléfono no es válido");
 
@@ -227,7 +228,7 @@ public class ClienteService {
     public byte[] exportClientesCsv() {
 
         StringBuilder csv = new StringBuilder();
-        csv.append("ID;Nombre;CIF;Vendedor\n");
+        csv.append("ID;NOMBRE;CIF;VENDEDOR;TELEFONO;EMAIL\n");
 
         List<Cliente> clientes = clienteRepository.findAll();
 
@@ -235,7 +236,9 @@ public class ClienteService {
             csv.append(c.getId()).append(";")
                     .append(c.getNombre()).append(";")
                     .append(c.getCif()).append(";")
-                    .append(c.getVendedor().getEmail())
+                    .append(c.getVendedor().getEmail()).append(";")
+                    .append(c.getTelefono()).append(";")
+                    .append(c.getEmail())
                     .append("\n");
         }
 
@@ -301,8 +304,9 @@ public class ClienteService {
                 throw new ImportException(new ImportErrorResponseDto("0", "El CSV no contiene cabecera"));
             }
 
-            String headerEsperado = "id;nombre;cif;correoVendedor";
-            if (!header.trim().equalsIgnoreCase(headerEsperado)) {
+            String headerEsperado = "ID;NOMBRE;CIF;VENDEDOR;TELEFONO;EMAIL";
+            header = header.trim().replace("\uFEFF", "");
+            if (!header.equalsIgnoreCase(headerEsperado)) {
                 throw new ImportException(new ImportErrorResponseDto(
                         "0",
                         "Cabecera incorrecta. Debe ser: " + headerEsperado
@@ -321,20 +325,27 @@ public class ClienteService {
                 if (linea.trim().isEmpty()) continue;
 
                 String[] campos = linea.split(";", -1);
-                if (campos.length != 4) {
+                if (campos.length != 6) {
                     throw new ImportException(new ImportErrorResponseDto(
                             safe(campos, 0),
-                            "Formato incorrecto en línea " + numLinea + " (se esperaban 4 campos)"
+                            "Formato incorrecto en línea " + numLinea + " (se esperaban 6 campos)"
                     ));
                 }
 
-                String idStr = campos[0].trim();
-                String nombre = campos[1].trim();
-                String cifRaw = campos[2].trim();
-                String correoVendedor = campos[3].trim();
+                String idStr = campos[0].trim().replace("\uFEFF", "");
+                String nombre = campos[1].trim().replace("\uFEFF", "");
+                String cifRaw = campos[2].trim().replace("\uFEFF", "");
+                String correoVendedor = campos[3].trim().replace("\uFEFF", "");
+                String telefono = campos[4].trim().replace("\uFEFF", "");
+                String email = campos[5].trim().replace("\uFEFF", "");
 
                 // ---------- Validaciones ----------
-                Long id = parseLongStrict(idStr, numLinea);
+                Long id;
+                try{
+                    id = parseLongStrict(idStr, numLinea);
+                }catch(NumberFormatException e){
+                    throw new ImportException(new ImportErrorResponseDto(idStr, "ID inválido en línea " + numLinea));
+                }
 
                 if (nombre.isEmpty()) {
                     throw new ImportException(new ImportErrorResponseDto(idStr,
@@ -346,19 +357,11 @@ public class ClienteService {
                     throw new ImportException(new ImportErrorResponseDto(idStr,
                             "CIF vacío en línea " + numLinea));
                 }
-
+                System.out.println("CIF A COMPROBAR -->" + cif);
                 if (!isCifValido(cif)) {
                     throw new ImportException(new ImportErrorResponseDto(idStr,
                             "CIF inválido '" + cif + "' en línea " + numLinea));
                 }
-
-                // Unicidad CIF
-                // Ajusta el método a tu repo real (existsByCifIgnoreCase, existsByCif, etc.)
-                if (clienteRepository.existsByCifIgnoreCase((cif))){
-                    throw new ImportException(new ImportErrorResponseDto(idStr,
-                            "Ya existe un cliente con CIF '" + cif + "'"));
-                }
-
 
 
                 if (correoVendedor.isEmpty()) {
@@ -374,11 +377,35 @@ public class ClienteService {
                                 "No existe vendedor con correo '" + correoVendedor + "'"
                         )));
 
+
+                if (clienteRepository.existsByCifIgnoreCase((cif))){
+                    throw new ImportException(new ImportErrorResponseDto(idStr,
+                            "Ya existe un cliente con CIF '" + cif + "'"));
+                }
+
+                if (!esEmailValido(email)) {
+                    throw new ImportException(new ImportErrorResponseDto(
+                            idStr,
+                            "No es valido el correo del registro con id: " + idStr
+                    ));
+                }
+                if (!esTelefonoValido(telefono)) {
+                    throw new ImportException(new ImportErrorResponseDto(
+                            idStr,
+                            "No es valido el numero del registro con id: " + idStr
+                    ));
+                }
+
                 // ---------- Construcción ----------
                 Cliente cliente = new Cliente();
                 cliente.setNombre(nombre);
                 cliente.setCif(cif);
                 cliente.setVendedor(vendedor);
+                cliente.setTelefono(telefono);
+                cliente.setEmail(email);
+
+
+
 
                 try {
                     clienteRepository.save(cliente);

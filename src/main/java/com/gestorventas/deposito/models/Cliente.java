@@ -52,10 +52,11 @@ public class Cliente {
     @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Pedido> pedidos = new LinkedHashSet<>();
 
-
     public Cliente() {}
-    public Cliente(String nombre, String cif){
+    public Cliente(String nombre, String cif, String telefono, String email) {
         this.nombre = nombre;
         this.cif = cif;
+        this.telefono = telefono;
+        this.email = email;
     }
 }

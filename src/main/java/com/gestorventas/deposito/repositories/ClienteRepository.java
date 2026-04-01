@@ -43,4 +43,6 @@ public interface ClienteRepository extends JpaRepository<Cliente,Long>, JpaSpeci
     Optional<Object> findByCif(String cif);
 
     boolean existsByCifIgnoreCase(String cif);
+
+    Cliente findByCifIgnoreCase(String cif);
 }

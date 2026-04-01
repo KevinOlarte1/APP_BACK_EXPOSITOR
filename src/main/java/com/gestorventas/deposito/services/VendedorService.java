@@ -100,12 +100,25 @@ public class VendedorService {
         if (apellido != null && !apellido.isEmpty()) {
             vendedor.setApellido(apellido);
         }
-        if (password != null && !password.isEmpty()) {
-            vendedor.setPassword(password);
+        if (password != null && !password.isBlank()) {
+            vendedor.setPassword(passwordEncoder.encode(password));
+            vendedor.setRefreshToken(null);
+            vendedor.setRefreshTokenExpiry(null);
         }
-        if (email != null && !email.isEmpty()) {
-            if (MailService.esEmailValido(email))
-                vendedor.setEmail(email);
+
+        if (email != null && !email.isBlank()) {
+            if (!MailService.esEmailValido(email)) {
+                throw new IllegalArgumentException("El email no es válido");
+            }
+
+            var existente = vendedorRepository.findByEmail(email).orElse(null);
+            if (existente != null && existente.getId() != id) {
+                throw new IllegalArgumentException("Ese email ya está en uso");
+            }
+
+            vendedor.setEmail(email);
+            vendedor.setRefreshToken(null);
+            vendedor.setRefreshTokenExpiry(null);
         }
         return new VendedorResponseDto(vendedorRepository.save(vendedor));
     }

@@ -167,7 +167,7 @@ public class ProductoService {
     public byte[] exportProductosCsv() {
 
         StringBuilder csv = new StringBuilder();
-        csv.append("ID;Nombre;Precio;Categoria\n");
+        csv.append("ID;DESCRIPCION;PRECIO;CATEGORIA\n");
 
         List<Producto> productos = productoRepository.findAllByActivo(true);
 
@@ -244,9 +244,10 @@ public class ProductoService {
                 );
             }
 
-            String headerEsperado = "id;descripcion;precio;categoria";
+            String headerEsperado = "ID;DESCRIPCION;PRECIO;CATEGORIA";
+            header = header.trim().replace("\uFEFF", "");
 
-            if (!header.trim().equalsIgnoreCase(headerEsperado)) {
+            if (!header.equalsIgnoreCase(headerEsperado)) {
                 throw new ImportException(
                         new ImportErrorResponseDto("0",
                                 "Cabecera incorrecta. Debe ser: " + headerEsperado)
@@ -275,16 +276,16 @@ public class ProductoService {
                     );
                 }
 
-                String idStr = campos[0].trim();
-                String descripcion = campos[1].trim();
-                String precioStr = campos[2].trim();
-                String categoriaStr = campos[3].trim();
+                String idStr = campos[0].trim().replace("\uFEFF", "");;
+                String descripcion = campos[1].trim().replace("\uFEFF", "");;
+                String precioStr = campos[2].trim().replace("\uFEFF", "");;
+                String categoriaStr = campos[3].trim().replace("\uFEFF", "");;
 
                 // ================================
                 // VALIDACIONES
                 // ================================
 
-                Long id;
+                long id;
                 try {
                     id = Long.parseLong(idStr);
                 } catch (Exception e) {
@@ -325,15 +326,7 @@ public class ProductoService {
                     );
                 }
 
-                // ================================
-                // PRODUCTO NO EXISTE
-                // ================================
-                if (productoRepository.existsById(id)) {
-                    throw new ImportException(
-                            new ImportErrorResponseDto(idStr,
-                                    "El producto ya existe en la base de datos")
-                    );
-                }
+
 
                 // ================================
                 // CATEGORÍA DEBE EXISTIR
@@ -347,6 +340,33 @@ public class ProductoService {
                                 )
                         );
 
+                Producto productotmp = productoRepository.findByDescripcionIgnoreCase(descripcion);
+                if (productotmp != null) {
+                    if (productotmp.isActivo()) {
+                        // ya existe activo → error
+                        throw new ImportException(
+                                new ImportErrorResponseDto(idStr,
+                                        "El producto ya existe en la base de datos")
+                        );
+                    }else{
+                        // existe pero está inactivo → REACTIVAR
+                        productotmp.setActivo(true);
+                        productotmp.setPrecio(precio);
+                        productotmp.setCategoria(categoria);
+
+                        try {
+                            productoRepository.save(productotmp);
+                        } catch (Exception e) {
+                            throw new ImportException(
+                                    new ImportErrorResponseDto(idStr,
+                                            "Error guardando producto: " + e.getMessage())
+                            );
+                        }
+
+                        importados++;
+                        continue; // MUY IMPORTANTE: saltar al siguiente
+                    }
+                }
                 // ================================
                 // CREAR PRODUCTO CON BUILDER
                 // ================================

@@ -17,10 +17,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @Service
 @AllArgsConstructor
@@ -116,8 +113,11 @@ public class CategoriaService {
                 throw new ImportException(new ImportErrorResponseDto("0", "El CSV no contiene cabecera"));
             }
 
-            String headerEsperado = "id;nombre";
-            if (!header.trim().equalsIgnoreCase(headerEsperado)) {
+            String headerEsperado = "ID;NOMBRE";
+            header = header.trim().replace("\uFEFF", "");
+
+
+            if (!header.equalsIgnoreCase(headerEsperado)) {
                 throw new ImportException(new ImportErrorResponseDto(
                         "0",
                         "Cabecera incorrecta. Debe ser: " + headerEsperado
@@ -153,10 +153,11 @@ public class CategoriaService {
                     ));
                 }
 
-                String nombreUpper = nombre.toUpperCase().trim();
+                String nombreUpper = nombre.toUpperCase().trim().replace("\uFEFF", "");;
+                Categoria categoria =  categoriaRepository.findByNombre(nombreUpper);
 
-                // Unicidad (ajusta el método si tu repo se llama distinto)
-                if (categoriaRepository.existsByNombreIgnoreCase(nombreUpper)) {
+                if (categoria != null && categoria.isActivo()) {
+                    System.out.println("Encontrado");
                     throw new ImportException(new ImportErrorResponseDto(
                             idStr,
                             "Ya existe una categoría con nombre '" + nombreUpper + "'"

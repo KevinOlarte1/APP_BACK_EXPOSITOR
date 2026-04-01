@@ -37,22 +37,31 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequestDto request){
-        var auth =  new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword());
-        authenticationManager.authenticate(auth);
-        Vendedor user = vendedorRepository.findByEmail(request.getEmail()).orElse(null);
-        if(user == null){
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "No user found with that email"));
+        try {
+            var auth = new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword());
+
+            authenticationManager.authenticate(auth);
+
+            Vendedor user = vendedorRepository.findByEmail(request.getEmail()).orElse(null);
+
+            if(user == null){
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("error", "No user found with that email"));
+            }
+
+            String accessToken = jwtUtil.generateAccessToken(user.getEmail(), vendedorService.userClaims(user));
+            String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
+
+            user.setRefreshToken(refreshToken);
+            user.setRefreshTokenExpiry(LocalDateTime.now().plusNanos(refreshExpirationMillis * 1_000_000L));
+
+            vendedorRepository.save(user);
+            return ResponseEntity.ok(new LoginResponseDto(accessToken, refreshToken));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Email o contraseña incorrectos"));
         }
-
-        String acccessToken = jwtUtil.generateAccessToken(user.getEmail(), vendedorService.userClaims(user));
-        String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
-
-        user.setRefreshToken(refreshToken);
-        user.setRefreshTokenExpiry(LocalDateTime.now().plusNanos(refreshExpirationMillis  * 1_000_000L));
-
-        vendedorRepository.save(user);
-        return ResponseEntity.ok(new LoginResponseDto(acccessToken,refreshToken));
     }
 
     @PostMapping("/refresh")

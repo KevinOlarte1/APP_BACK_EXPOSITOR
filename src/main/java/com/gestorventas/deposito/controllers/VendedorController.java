@@ -93,26 +93,107 @@ public class VendedorController {
     /**
      * Actualizar los datos de un vendedor existente.
      *
+     * Permite modificar de forma parcial los datos de un vendedor.
+     * Solo se actualizarán los campos que se envíen en el DTO.
+     *
+     *  Consideraciones:
+     * - Si se actualiza la contraseña, se almacenará encriptada.
+     * - Si se actualiza el email:
+     *      - Debe tener un formato válido.
+     *      - No puede estar duplicado.
+     *      - Se invalidarán los tokens de sesión.
+     *
      * @param id  identificador del vendedor
-     * @param dto datos actualizados
+     * @param dto datos actualizados (nombre, apellido, password, email)
      * @return DTO con los datos del vendedor actualizado
      */
-    @Operation(summary = "Actualizar los datos de un vendedor", description = "Actualiza los datos de un vendedor")
+    @Operation(
+            summary = "Actualizar un vendedor",
+            description = "Actualiza los datos de un vendedor existente. Solo se modifican los campos enviados."
+    )
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Vendedor actualizado"),
-            @ApiResponse(responseCode = "404", description = "Vendedor no encontrado/ datos incorrectos a actualizar", content = @Content)
+            @ApiResponse(responseCode = "200", description = "Vendedor actualizado correctamente"),
+            @ApiResponse(responseCode = "400", description = "Datos inválidos (email incorrecto, duplicado, etc.)", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Vendedor no encontrado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "No autorizado (requiere rol ADMIN)", content = @Content)
     })
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<VendedorResponseDto> update(
+    public ResponseEntity<?> update(
             @PathVariable long id,
                 @RequestBody VendedorDto dto
     ) {
-        VendedorResponseDto vendedor =  vendedorService.update(id, dto.getNombre(), dto.getApellido(), dto.getPassword(), dto.getEmail());
-        if (vendedor == null)
+        try {
+            VendedorResponseDto vendedor = vendedorService.update(
+                    id,
+                    dto.getNombre(),
+                    dto.getApellido(),
+                    dto.getPassword(),
+                    dto.getEmail()
+            );
+
+            if (vendedor == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            return ResponseEntity.ok(vendedor);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Actualizar los datos del usuario autenticado.
+     *
+     * Permite al vendedor autenticado modificar su propia información.
+     * El identificador del usuario se obtiene automáticamente desde el token JWT,
+     * por lo que no es necesario enviarlo en la petición.
+     *
+     *  Consideraciones:
+     * - Solo se actualizarán los campos enviados en el DTO.
+     * - Si se actualiza la contraseña:
+     *      - Se almacenará encriptada.
+     *      - Se invalidarán los tokens de sesión.
+     * - Si se actualiza el email:
+     *      - Debe ser válido.
+     *      - No puede estar duplicado.
+     *      - Puede requerir volver a iniciar sesión.
+     *
+     * @param auth información del usuario autenticado (extraída del JWT)
+     * @param dto datos a actualizar (nombre, apellido, password, email)
+     * @return DTO con los datos actualizados del vendedor
+     */
+    @Operation(
+            summary = "Actualizar mi perfil",
+            description = "Permite al usuario autenticado actualizar sus propios datos."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Perfil actualizado correctamente"),
+            @ApiResponse(responseCode = "400", description = "Datos inválidos (email incorrecto, duplicado, etc.)", content = @Content),
+            @ApiResponse(responseCode = "401", description = "No autenticado o token inválido", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Usuario no encontrado", content = @Content)
+    })
+    @PutMapping("/me")
+    public ResponseEntity<?> update(Authentication auth, @RequestBody VendedorDto dto) {
+        var email = auth.getName();
+        Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
+        VendedorResponseDto vendedor = vendedorService.update(
+                u.getId(),
+                dto.getNombre(),
+                dto.getApellido(),
+                dto.getPassword(),
+                dto.getEmail()
+        );
+
+
+        if (vendedor == null) {
             return ResponseEntity.notFound().build();
+        }
+
         return ResponseEntity.ok(vendedor);
     }
+
 
     /**
      * Eliminar un vendedor por su ID.

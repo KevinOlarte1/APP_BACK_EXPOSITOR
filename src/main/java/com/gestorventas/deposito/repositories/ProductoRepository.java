@@ -34,4 +34,5 @@ public interface ProductoRepository extends JpaRepository<Producto, Long>, JpaSp
 
     List<Producto> findAllByActivo(boolean activo);
 
+    Producto findByDescripcionIgnoreCase(String descripcion);
 }
