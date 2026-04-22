@@ -67,6 +67,8 @@ public class Pedido {
      */
     private String comentario;
 
+    private String token;
+
 
 
     public Pedido(int descuento, int iva){
@@ -76,6 +78,7 @@ public class Pedido {
         this.iva = iva;
         this.brutoTotal = BigDecimal.ZERO;
         this.comentario = "";
+        this.token = "";
     }
 
     public Pedido(){
@@ -85,6 +88,7 @@ public class Pedido {
         this.iva = 0;
         this.brutoTotal = BigDecimal.ZERO;
         this.comentario = "";
+        this.token = "";
     }
 
     @Override

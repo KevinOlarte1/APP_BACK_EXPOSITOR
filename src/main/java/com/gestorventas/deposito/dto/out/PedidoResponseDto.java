@@ -34,6 +34,7 @@ public class PedidoResponseDto {
         private String precioIva;
         private String total;
         private String comentario;
+        private String token;
 
     public PedidoResponseDto(Pedido pedido) {
         this.id = pedido.getId();
@@ -89,6 +90,7 @@ public class PedidoResponseDto {
         this.total = totalFinal.toString();
 
         this.comentario = pedido.getComentario();
+        this.token = pedido.getToken();
     }
 
 }
