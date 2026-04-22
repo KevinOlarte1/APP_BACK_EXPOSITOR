@@ -278,6 +278,8 @@ public class PedidoService {
         return new PedidoResponseDto(pedido);
     }
 
+
+
     public PedidoResponseDto cerrarPedido(long idCliente, long idPedido) {
         Cliente cliente= clienteRepository.findById(idCliente);
         if (cliente == null)
@@ -303,10 +305,9 @@ public class PedidoService {
         }
         pedido.setFinalizado(true);
         pedido.setBrutoTotal(nuevoTotal);
-
+        pedido.setToken(generarTokenUnico());
 
         pedido = pedidoRepository.save(pedido);
-        System.out.println("Cerrado correctamente !! ------------");
         try{
             List<Vendedor> vendedorEnviar = new ArrayList<Vendedor>();
             Vendedor vendedorCliente = cliente.getVendedor();
@@ -325,20 +326,37 @@ public class PedidoService {
 
     }
 
+    public byte[] exportPedidosCsv() {
+        StringBuilder csv = new StringBuilder();
+        csv.append("ID;FECHA;PRODUCTO;UNIDADES;PVP;CIF_CLIENTE\n");
+        List<Pedido> pedidos = pedidoRepository.findAll();
+
+        for (Pedido pedido : pedidos) {
+            for (LineaPedido linea : pedido.getLineas()) {
+                csv.append(pedido.getId()).append(";")
+                        .append(pedido.getFecha()).append(";")
+                        .append(linea.getProducto().getDescripcion()).append(";")
+                        .append(linea.getCantidad()).append(";")
+                        .append(linea.getPrecio()).append(";")
+                        .append(pedido.getCliente().getCif()).append("\n");
+            }
+        }
+        return ("\uFEFF" + csv).getBytes(StandardCharsets.UTF_8);
+
+    }
+
     /**
-     * Generar un informe PDF con los datos de un pedido.
-     * @param idPedido identificador pedido a generar el informe.
-     * @return byte[] con el informe generado.
+     * Genera el PDF de un pedido a partir de su token público.
+     *
+     * @param token Token asociado al pedido.
+     * @return PDF en formato byte[].
+     * @throws RuntimeException Si el pedido no existe, no está finalizado
+     *                          o ocurre un error al generar el PDF.
      */
-    public byte[] generarInformePdf(long idPedido,long idCliente, Long idVendedor) {
-        Pedido pedido = pedidoRepository.findById(idPedido);
-        if (pedido == null)
+    public byte[] getPDF(String token) {
+        Pedido pedido = pedidoRepository.findByToken(token);
+        if (pedido == null) {
             throw new RuntimeException("Pedido inexistente");
-        if (!pedido.getCliente().getId().equals(idCliente))
-            throw new RuntimeException("Cliente inexistente");
-        if (idVendedor != null) {
-            if (!pedido.getCliente().getVendedor().getId().equals(idVendedor))
-                throw new RuntimeException("Vendedor inexistente");
         }
 
         if (!pedido.isFinalizado())
@@ -403,28 +421,11 @@ public class PedidoService {
             throw new RuntimeException("Error al generar PDF", e);
         }
     }
-
-
-
-
-    public byte[] exportPedidosCsv() {
-        StringBuilder csv = new StringBuilder();
-        csv.append("ID;FECHA;PRODUCTO;UNIDADES;PVP;CIF_CLIENTE\n");
-        List<Pedido> pedidos = pedidoRepository.findAll();
-
-        for (Pedido pedido : pedidos) {
-            for (LineaPedido linea : pedido.getLineas()) {
-                csv.append(pedido.getId()).append(";")
-                        .append(pedido.getFecha()).append(";")
-                        .append(linea.getProducto().getDescripcion()).append(";")
-                        .append(linea.getCantidad()).append(";")
-                        .append(linea.getPrecio()).append(";")
-                        .append(pedido.getCliente().getCif()).append("\n");
-            }
-        }
-        return ("\uFEFF" + csv).getBytes(StandardCharsets.UTF_8);
-
+    private String generarTokenUnico() {
+        String token;
+        do {
+            token = UUID.randomUUID().toString().replace("-", "");
+        } while (pedidoRepository.existsByToken(token));
+        return token;
     }
-
-
 }

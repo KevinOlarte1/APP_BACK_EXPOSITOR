@@ -87,4 +87,8 @@ public interface PedidoRepository extends JpaRepository<Pedido,Long>, JpaSpecifi
             ORDER BY total DESC
     """)
     List<ProductoCount> countTopProductsByVendedor(Long idVendedor);
+
+    boolean existsByToken(String token);
+
+    Pedido findByToken(String token);
 }

@@ -193,39 +193,7 @@ public class PedidoController {
         return ResponseEntity.ok(pedidoService.cerrarPedido(idVendedor, idCliente, id));
     }
 
-    /**
-     * Generar un informe PDF de un pedido.
-     * @param idCliente identificador del cliente
-     * @param idPedido identificador del pedido
-     * @return byte[] con el informe PDF generado.
-     */
-    @GetMapping("/{idPedido}/pdf")
-    @Operation(summary = "Generar un informe PDF de un pedido", description = "Genera un informe PDF de un pedido")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Informe PDF generado correctamente"),
-            @ApiResponse(responseCode = "500", description = "Error interno", content = @Content)
-    })
-    public ResponseEntity<byte[]> getPedidoPdf(
-            Authentication auth,
-            @PathVariable Long idCliente,
-            @PathVariable Long idPedido) {
-        var email = auth.getName();
-        byte[] pdfBytes;
-        Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
-        Long idVendedor = u.getId();
-        if (u.getRoles().contains(Role.ADMIN)) {
-            pdfBytes = pedidoService.generarInformePdf(idPedido, idCliente, null);
-        }
-        else{
-            pdfBytes = pedidoService.generarInformePdf(idPedido, idCliente, idVendedor);
-        }
 
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=pedido-" + idPedido + ".pdf")
-                .contentType(MediaType.APPLICATION_PDF)
-                .body(pdfBytes);
-    }
 
 
 }
