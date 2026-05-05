@@ -2,6 +2,7 @@ package com.gestorventas.deposito.controllers;
 
 import com.gestorventas.deposito.repositories.PedidoRepository;
 import com.gestorventas.deposito.services.PedidoService;
+import lombok.AllArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/pedido")
+@AllArgsConstructor
 public class PublicController {
 
     private PedidoService pedidoService;
@@ -19,6 +21,7 @@ public class PublicController {
 
     @GetMapping("/download")
     public ResponseEntity<byte[]> descargarPdfPublico(@RequestParam("token") String token) {
+        System.out.println("Entra!");
         byte[] pdfBytes;
         pdfBytes = pedidoService.getPDF(token);
         return ResponseEntity.ok()

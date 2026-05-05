@@ -39,6 +39,7 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/pedido/download").permitAll()
                         .anyRequest().authenticated()
                 )
                 .userDetailsService(userDetailsService)
