@@ -192,10 +192,13 @@ public class AuthController {
     @PostMapping("/prv")
     public ResponseEntity<?> sendMail(){
         try{
-            emailService.enviarPrueba();
+            System.out.println("Entra en enpointPrueva");
+            emailService.sendEmail("kevinolarte.ko@gmail.com", "Prueba tmp", "Prueba tmp");
 
         }catch(Exception e){
-            System.out.println("Error enviando email");
+            System.out.println(e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
         }
         return ResponseEntity.ok("");
     }
