@@ -193,9 +193,11 @@ public class AuthController {
     public ResponseEntity<?> sendMail(){
         try{
             System.out.println("Entra en enpointPrueva");
-            emailService.sendEmail("kevinolarte.ko@gmail.com", "Prueba tmp", "Prueba tmp");
+            System.out.println("Holaa");
+            emailService.sendEmail("kevinolarte.ko8@gmail.com", "Prueba tmp", "Prueba tmp");
 
         }catch(Exception e){
+            System.out.println("-------------------------");
             System.out.println(e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", e.getMessage()));

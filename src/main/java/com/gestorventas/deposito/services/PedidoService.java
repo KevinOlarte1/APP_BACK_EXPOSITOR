@@ -18,6 +18,7 @@ import com.lowagie.text.pdf.PdfWriter;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 
 import java.io.ByteArrayOutputStream;
@@ -133,11 +134,15 @@ public class PedidoService {
 
 
     /**
-     * Obtener listado de todos los Pedidos registrados en el sistema.
-     * se le puede añadir los siguentes filtrados, idVendedor, idCliente
-     * @param idVendedor filtrado opcionar sacar por vendedor.
-     * @param idCliente filtrado opcional sacar por cliente.
-     * @return Listado DTO con todos los pedidos.
+     * Obtiene el listado de pedidos registrados en el sistema aplicando
+     * filtros opcionales por vendedor y cliente.
+     * <p>
+     * Los resultados se devuelven ordenados mostrando primero los pedidos
+     * no finalizados y, dentro de cada grupo, por identificador descendente.
+     *
+     * @param idVendedor identificador opcional del vendedor para filtrar pedidos
+     * @param idCliente identificador opcional del cliente para filtrar pedidos
+     * @return listado de pedidos adaptados a DTO
      */
     public List<PedidoResponseDto> getAll(Long idVendedor, Long idCliente) {
         Sort sort = Sort.by(
@@ -151,12 +156,22 @@ public class PedidoService {
     }
 
     /**
-     * Actualizar los datos de un pedido segun el identificador id
-     * @param id id del peiddo a modificar.
-     * @param idCliente cleinte que se le vendera el pedido
-     * @param fecha fecha que se realizo el pedido actualizado
-     * @return peiddo actualizado.
-     * @throws RuntimeException referencia no existe.
+     * Actualiza los datos generales de un pedido existente.
+     * <p>
+     * El método valida que el pedido pertenezca al cliente indicado y,
+     * si se informa un vendedor, comprueba que tenga permiso sobre el cliente.
+     * Permite modificar la fecha, el descuento, el IVA y el comentario del pedido.
+     *
+     * @param id identificador del pedido a actualizar
+     * @param idVendedor identificador opcional del vendedor que realiza la operación
+     * @param idCliente identificador del cliente asociado al pedido
+     * @param fecha nueva fecha del pedido, si se desea modificar
+     * @param descuento nuevo descuento aplicado, si se desea modificar
+     * @param iva nuevo IVA aplicado, si se desea modificar
+     * @param comentario nuevo comentario del pedido
+     * @return DTO con los datos actualizados del pedido
+     * @throws RuntimeException si el pedido no existe, no pertenece al cliente
+     *                          o el vendedor no tiene permiso para modificarlo
      */
     public PedidoResponseDto update(
             long id,
@@ -172,6 +187,9 @@ public class PedidoService {
         if (pedido == null)
             throw new RuntimeException("Pedido inexistente");
 
+        if (pedido.isFinalizado())
+            throw new RuntimeException("No se puede modificar un pedido finalizado");
+
         if (pedido.getCliente().getId() != idCliente)
             throw new RuntimeException("El pedido no pertenece al cliente");
         if (idVendedor != null)
@@ -184,17 +202,22 @@ public class PedidoService {
         }
 
         // Descuento puede ser 0, así que >= 0
-        if (descuento != null && descuento >= 0) {
+        if (descuento != null) {
+            if (descuento < 0)
+                throw new RuntimeException("El descuento no puede ser negativo");
             pedido.setDescuento(descuento);
         }
 
         // IVA puede ser 0, así que >= 0
-        if (iva != null && iva >= 0) {
+        if (iva != null) {
+            if (iva < 0)
+                throw new RuntimeException("El Iva no puede ser negativo");
             pedido.setIva(iva);
         }
 
-        pedido.setComentario(comentario);
-
+        if (comentario != null) {
+            pedido.setComentario(comentario);
+        }
         pedido = pedidoRepository.save(pedido);
 
         return new PedidoResponseDto(pedido);
@@ -222,9 +245,9 @@ public class PedidoService {
     }
 
     /**
-     * Borrar un pedio pero con menos restrinciones
-     * @param id indentificador del pedido
-     * @param idCliente identificador de asociado al pedido
+     * Elimina un pedido asociado a un cliente concreto.
+     * @param id identificador del pedido a eliminar
+     * @param idCliente identificador del cliente propietario del pedido
      */
     public void delete(long id, long idCliente) {
         Cliente cliente = clienteRepository.findById(idCliente);
@@ -239,13 +262,22 @@ public class PedidoService {
 
 
     /**
-     * Cerrar un pedido ya registrado.
-     * @param idVendedor identificador del vendedor que realizo el pedido.
-     * @param idCliente identificador del cliente que realizo el pedido.
-     * @param idPedido identificador del pedido que se va a cerrar.
-     * @return DTO con los datos del pedido cerrado.
-     * @throws RuntimeException entidades inexistentes.
+     * Cierra un pedido asociado a un cliente y vendedor concreto.
+     * <p>
+     * El método valida la existencia del vendedor, del cliente y del pedido,
+     * comprobando además que el cliente pertenezca al vendedor indicado y que
+     * el pedido esté asociado correctamente al cliente. Posteriormente delega
+     * el proceso de cierre en el método interno {@code _cerrarPedido} y envía
+     * una notificación por correo a los administradores y al vendedor responsable.
+     *
+     * @param idVendedor identificador del vendedor responsable del pedido
+     * @param idCliente identificador del cliente asociado al pedido
+     * @param idPedido identificador del pedido que se desea cerrar
+     * @return DTO con los datos actualizados del pedido cerrado
+     * @throws RuntimeException si el vendedor, cliente o pedido no existen
+     *                          o no están correctamente relacionados
      */
+    @Transactional
     public PedidoResponseDto cerrarPedido(long idVendedor, long idCliente, long idPedido) {
         Vendedor vendedor = vendedorRepository.findById(idVendedor);
         if (vendedor == null)
@@ -257,19 +289,12 @@ public class PedidoService {
         if (pedido == null || pedido.getCliente().getId() != idCliente)
             throw new RuntimeException("Pedido inexistente");
 
-        pedido.setFinalizado(true);
-
-        pedido = pedidoRepository.save(pedido);
+        pedido = _cerrarPedido(pedido);
 
         try{
-            Vendedor vadmin1 = vendedorRepository.findByEmail("gcholbi@gmail.com").orElse(null);
-            Vendedor vadmin2 = vendedorRepository.findByEmail("josepfornesmarti@gmail.com").orElse(null);
-            List<Vendedor> vendedores = new ArrayList<>();
-            if (vadmin1 != null)
-                vendedores.add(vadmin1);
-            if (vadmin2 != null)
-                vendedores.add(vadmin2);
+            List<Vendedor> vendedores = vendedorRepository.findByRole(Role.ADMIN);
             vendedores.add(vendedor);
+
             mailService.enviarCorreosPedido(vendedores, pedido);
 
         } catch (Exception e){
@@ -278,45 +303,35 @@ public class PedidoService {
         return new PedidoResponseDto(pedido);
     }
 
-
-
+    /**
+     * Cierra un pedido asociado a un cliente desde el flujo de administración.
+     * <p>
+     * Valida que el cliente y el pedido existan, comprueba que el pedido pertenezca
+     * al cliente indicado y delega el proceso de cierre en el método interno
+     * {@code _cerrarPedido}. Una vez cerrado, notifica por correo a los vendedores
+     * con rol administrador.
+     *
+     * @param idCliente identificador del cliente asociado al pedido
+     * @param idPedido identificador del pedido que se desea cerrar
+     * @return DTO con los datos actualizados del pedido cerrado
+     * @throws RuntimeException si el cliente no existe, el pedido no existe
+     *                          o no pertenece al cliente indicado
+     */
+    @Transactional
     public PedidoResponseDto cerrarPedido(long idCliente, long idPedido) {
+        //Validacion
         Cliente cliente= clienteRepository.findById(idCliente);
         if (cliente == null)
             throw new RuntimeException("Cliente inexistente");
         Pedido pedido = pedidoRepository.findById(idPedido);
         if (pedido == null || pedido.getCliente().getId() != idCliente)
             throw new RuntimeException("Pedido inexistente");
-        BigDecimal oldBruto = pedido.getBrutoTotal();
-        List<LineaPedido> lineasPeiddo = lineaPedidoRepository.getLineaPedidoByPedido(pedido);
-        BigDecimal nuevoTotal = BigDecimal.ZERO;
-        for (LineaPedido linea : lineasPeiddo) {
-            if (linea.getStockFinal() == null || linea.getStockFinal() < 0){
-                throw new RuntimeException("Hay lineas sin sotck_final definido");
-            }
-            if (linea.getStockFinal() > linea.getCantidad())
-                throw new RuntimeException("Incongruencia de valores");
-            //Revalorizamos unidad, con la diferencia del habia haber.
-            linea.setCantidad(linea.getCantidad() - linea.getStockFinal());
-            nuevoTotal = nuevoTotal.add(linea.getPrecio().multiply(
-                    BigDecimal.valueOf(linea.getCantidad())
-                            .setScale(2, RoundingMode.HALF_UP)));
 
-        }
-        pedido.setFinalizado(true);
-        pedido.setBrutoTotal(nuevoTotal);
-        pedido.setToken(generarTokenUnico());
+        pedido = _cerrarPedido(pedido);
 
-        pedido = pedidoRepository.save(pedido);
         try{
-            List<Vendedor> vendedorEnviar = new ArrayList<Vendedor>();
-            Vendedor vendedorCliente = cliente.getVendedor();
-            vendedorEnviar.add(vendedorCliente);
-            vendedorRepository.findByEmail("gcholbi@gmail.com").ifPresent(vendedorEnviar::add);
-            vendedorRepository.findByEmail("josepfornesmarti@gmail.com").ifPresent(vendedorEnviar::add);
-
+            List<Vendedor> vendedorEnviar = vendedorRepository.findByRole(Role.ADMIN);
             mailService.enviarCorreosPedido(vendedorEnviar, pedido);
-
 
         } catch (Exception e){
             System.out.println(e.getMessage());
@@ -326,6 +341,16 @@ public class PedidoService {
 
     }
 
+    /**
+     * Genera y exporta un archivo CSV con el listado de pedidos y sus líneas asociadas.
+     * <p>
+     * Cada fila del CSV representa una línea de pedido e incluye información
+     * del pedido, producto, unidades, precio aplicado y CIF del cliente.
+     * El archivo se genera en formato UTF-8 con BOM para garantizar
+     * compatibilidad con aplicaciones como Microsoft Excel.
+     *
+     * @return archivo CSV en formato byte[] listo para descarga
+     */
     public byte[] exportPedidosCsv() {
         StringBuilder csv = new StringBuilder();
         csv.append("ID;FECHA;PRODUCTO;UNIDADES;PVP;CIF_CLIENTE\n");
@@ -343,6 +368,62 @@ public class PedidoService {
         }
         return ("\uFEFF" + csv).getBytes(StandardCharsets.UTF_8);
 
+    }
+
+
+    /**
+     * Cierra un pedido aplicando el ajuste de cantidades según el stock final
+     * indicado en cada línea.
+     * <p>
+     * Para cada línea se valida que el stock final esté informado y que no sea
+     * superior a la cantidad inicial. Posteriormente se recalcula la cantidad
+     * vendida, se actualiza el importe bruto del pedido, se genera un token
+     * público de descarga y se marca el pedido como finalizado.
+     *
+     * @param pedido pedido que se desea cerrar
+     * @return pedido actualizado y marcado como finalizado
+     * @throws RuntimeException si el pedido ya está finalizado o alguna línea
+     *                          contiene valores de stock no válidos
+     */
+    private Pedido _cerrarPedido(Pedido pedido) {
+        if (pedido.isFinalizado())
+            throw new RuntimeException("El pedido ya está finalizado");
+        //Actualizacion de lineas
+        List<LineaPedido> lineasPeiddo = lineaPedidoRepository.getLineaPedidoByPedido(pedido);
+
+        BigDecimal nuevoTotal = BigDecimal.ZERO;
+
+        for (LineaPedido linea : lineasPeiddo) {
+            //Comprobar que tenga stockFinal
+            if (linea.getStockFinal() == null || linea.getStockFinal() < 0){
+                throw new RuntimeException("Hay lineas sin sotck_final definido");
+            }
+
+            //No puede tener valor final mayor que na inicial
+            if (linea.getStockFinal() > linea.getCantidad())
+                throw new RuntimeException("Incongruencia de valores");
+
+            //Revalorizamos unidad, con la diferencia del habia haber.
+            linea.setCantidad(linea.getCantidad() - linea.getStockFinal());
+            BigDecimal subtotal = linea.getPrecio()
+                    .multiply(BigDecimal.valueOf(linea.getCantidad()))
+                    .setScale(2, RoundingMode.HALF_UP);
+
+            nuevoTotal = nuevoTotal.add(subtotal);
+
+        }
+
+        //Guardar lineas en BBDD
+        lineaPedidoRepository.saveAll(lineasPeiddo);
+
+
+        pedido.setFinalizado(true);
+        pedido.setBrutoTotal(nuevoTotal);
+        pedido.setToken(generarTokenUnico());
+
+        //Guardar pedido en BBDD
+        pedido = pedidoRepository.save(pedido);
+        return  pedido;
     }
 
     /**
@@ -421,6 +502,11 @@ public class PedidoService {
             throw new RuntimeException("Error al generar PDF", e);
         }
     }
+
+    /**
+     * Genera un token unico para la obtencion del pdf mediante token
+     * @return codigo hash unico
+     */
     private String generarTokenUnico() {
         String token;
         do {

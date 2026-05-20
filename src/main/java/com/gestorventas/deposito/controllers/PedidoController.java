@@ -186,7 +186,6 @@ public class PedidoController {
         var email = auth.getName();
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
         if(u.getRoles().contains(Role.ADMIN)){
-            System.out.println("ADMIN -------------");
             return ResponseEntity.ok(pedidoService.cerrarPedido(idCliente,id));
         }
         Long idVendedor = u.getId();

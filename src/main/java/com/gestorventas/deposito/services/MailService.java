@@ -40,17 +40,16 @@ public class    MailService {
 
     public void enviarCorreoPedido(String[] destinatario, Pedido pedido) throws MessagingException {
         String html = generarHtmlPedido(pedido);
-        System.out.println("html generado");
 
         MimeMessage mensaje = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(mensaje, true);
 
+        helper.setFrom("soporte@mi-app-deposito.cloud");
         helper.setTo(destinatario);
         helper.setSubject("Confirmación de pedido #"     + pedido.getId());
         helper.setText(html, true); // true para interpretar HTML
 
         mailSender.send(mensaje);
-        System.out.println("Envado!!---");
     }
 
     private String generarHtmlPedido(Pedido pedido) {
@@ -390,6 +389,7 @@ public class    MailService {
 
     public void sendEmail(String to, String subject, String body) {
         SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom("soporte@mi-app-deposito.cloud");
         message.setTo(to);
         message.setSubject(subject);
         message.setText(body);
@@ -400,7 +400,6 @@ public class    MailService {
         if (vendedorEnviar == null || vendedorEnviar.isEmpty()) return;
         if (pedido == null) return;
 
-        System.out.println("Entra bien!! asdasdasdasdasd");
 
         String[] emails = vendedorEnviar.stream()
                         .map(Vendedor::getEmail)
