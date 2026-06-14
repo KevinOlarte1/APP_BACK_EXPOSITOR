@@ -3,9 +3,7 @@ package com.gestorventas.deposito.controllers;
 import com.gestorventas.deposito.dto.in.UpdatePedidoRequestDto;
 import com.gestorventas.deposito.dto.out.PedidoResponseDto;
 import com.gestorventas.deposito.enums.Role;
-import com.gestorventas.deposito.models.Pedido;
 import com.gestorventas.deposito.models.Vendedor;
-import com.gestorventas.deposito.repositories.PedidoRepository;
 import com.gestorventas.deposito.repositories.VendedorRepository;
 import com.gestorventas.deposito.services.PedidoService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,18 +11,12 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.AllArgsConstructor;
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Controlador REST para gestionar pedidos de un cliente de un vendedor.
@@ -38,7 +30,6 @@ import java.util.Map;
 @AllArgsConstructor
 public class PedidoController {
     private final VendedorRepository vendedorRepository;
-    private final PedidoRepository pedidoRepository;
     private PedidoService pedidoService;
 
     /**
@@ -160,10 +151,11 @@ public class PedidoController {
         var email = auth.getName();
         Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
         Long idVendedor = u.getId();
-        if (u.getRoles().contains(Role.ADMIN)) {
+        if (u.getRoles().contains(Role.ADMIN))
             pedidoService.delete(id, idCliente);
-        }
-        pedidoService.delete(id, idCliente, idVendedor);
+        else
+            pedidoService.delete(id, idCliente, idVendedor);
+
         return ResponseEntity.noContent().build();
     }
 
@@ -191,6 +183,29 @@ public class PedidoController {
         Long idVendedor = u.getId();
         return ResponseEntity.ok(pedidoService.cerrarPedido(idVendedor, idCliente, id));
     }
+
+    @PutMapping("/{id}/reabrir")
+    @Operation(summary = "Reabrir un pedido", description = "Reabrir un pedido")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Pedido reabierto correctamente"),
+            @ApiResponse(responseCode = "500", description = "Error interno", content = @Content)
+    })
+    public ResponseEntity<PedidoResponseDto> reabrir(
+            Authentication auth,
+            @PathVariable Long idCliente,
+            @PathVariable Long id){
+        var email = auth.getName();
+        Vendedor u = vendedorRepository.findByEmail(email).orElseThrow();
+        if(u.getRoles().contains(Role.ADMIN)){
+            return ResponseEntity.ok(pedidoService.reabrir(idCliente,id));
+        }
+        Long idVendedor = u.getId();
+        return ResponseEntity.ok(pedidoService.reabrir(idVendedor, idCliente, id));
+    }
+
+
+
+
 
 
 

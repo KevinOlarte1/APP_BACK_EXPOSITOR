@@ -178,7 +178,7 @@ public class VendedorService {
         if (vendedor == null){
             return null;
         }
-        result.put("abierrtos", pedidoRepository.countNotFinalizadosByVendedor(idVendedor));
+        result.put("abiertos", pedidoRepository.countNotFinalizadosByVendedor(idVendedor));
         result.put("cerrados", pedidoRepository.countFinalizadosByVendedor(idVendedor));
         return result;
 

@@ -28,7 +28,9 @@ import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
+import java.awt.Color;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.List;
 
@@ -70,6 +72,7 @@ public class PedidoService {
         int descuento = paramService.getDescuento()  == null ? 0 : paramService.getDescuento();
         Pedido pedido = new Pedido(descuento, iva);
         pedido.setCliente(cliente);
+        pedido.setToken(generarTokenUnico());
 
         pedido = pedidoRepository.save(pedido);
         return new PedidoResponseDto(pedido);
@@ -90,6 +93,7 @@ public class PedidoService {
 
         Pedido pedido = new Pedido(descuento, iva);
         pedido.setCliente(cliente.get());
+        pedido.setToken(generarTokenUnico());
 
         pedido = pedidoRepository.save(pedido);
         return new PedidoResponseDto(pedido);
@@ -203,7 +207,7 @@ public class PedidoService {
 
         // Descuento puede ser 0, así que >= 0
         if (descuento != null) {
-            if (descuento < 0)
+            if (descuento < 0 || descuento > 100)
                 throw new RuntimeException("El descuento no puede ser negativo");
             pedido.setDescuento(descuento);
         }
@@ -419,7 +423,6 @@ public class PedidoService {
 
         pedido.setFinalizado(true);
         pedido.setBrutoTotal(nuevoTotal);
-        pedido.setToken(generarTokenUnico());
 
         //Guardar pedido en BBDD
         pedido = pedidoRepository.save(pedido);
@@ -436,71 +439,229 @@ public class PedidoService {
      */
     public byte[] getPDF(String token) {
         Pedido pedido = pedidoRepository.findByToken(token);
-        if (pedido == null) {
+        if (pedido == null)
             throw new RuntimeException("Pedido inexistente");
-        }
 
-        if (!pedido.isFinalizado())
-            throw new RuntimeException("El pedido no ha sido finalizado");
-
+        Cliente cliente = pedido.getCliente();
+        Vendedor vendedor = cliente.getVendedor();
         NumberFormat nf = NumberFormat.getCurrencyInstance(new Locale("es", "ES"));
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
+        BigDecimal bruto = pedido.getBrutoTotal().setScale(2, RoundingMode.HALF_UP);
+        BigDecimal base = bruto
+                .multiply(BigDecimal.valueOf(100 - pedido.getDescuento()))
+                .divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal descuentoImporte = bruto.subtract(base).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal ivaImporte = base
+                .multiply(BigDecimal.valueOf(pedido.getIva()))
+                .divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal total = base.add(ivaImporte).setScale(2, RoundingMode.HALF_UP);
+
+        Color cDark    = new Color(15,  23,  42);
+        Color cMuted   = new Color(100, 116, 139);
+        Color cLine    = new Color(229, 231, 235);
+        Color cBgLight = new Color(248, 250, 252);
+        Color cAltRow  = new Color(249, 250, 251);
+        Color cSlate   = new Color(148, 163, 184);
+
+        Font fHeader     = FontFactory.getFont(FontFactory.HELVETICA_BOLD,   22, Color.WHITE);
+        Font fHeaderSub  = FontFactory.getFont(FontFactory.HELVETICA,          9, cSlate);
+        Font fNumPedido  = FontFactory.getFont(FontFactory.HELVETICA_BOLD,   13, Color.WHITE);
+        Font fFecha      = FontFactory.getFont(FontFactory.HELVETICA,          9, cSlate);
+        Font fLabel      = FontFactory.getFont(FontFactory.HELVETICA_BOLD,     7, cMuted);
+        Font fValBold    = FontFactory.getFont(FontFactory.HELVETICA_BOLD,    10, cDark);
+        Font fValNormal  = FontFactory.getFont(FontFactory.HELVETICA,          9, cDark);
+        Font fTblHead    = FontFactory.getFont(FontFactory.HELVETICA_BOLD,     8, cMuted);
+        Font fTblCell    = FontFactory.getFont(FontFactory.HELVETICA,          9, cDark);
+        Font fTotLabel   = FontFactory.getFont(FontFactory.HELVETICA,          9, cMuted);
+        Font fTotValue   = FontFactory.getFont(FontFactory.HELVETICA_BOLD,     9, cDark);
+        Font fGrandLabel = FontFactory.getFont(FontFactory.HELVETICA_BOLD,    11, Color.WHITE);
+        Font fGrandVal   = FontFactory.getFont(FontFactory.HELVETICA_BOLD,    11, Color.WHITE);
+        Font fFooter     = FontFactory.getFont(FontFactory.HELVETICA,          8, cMuted);
+        Font fComentLbl  = FontFactory.getFont(FontFactory.HELVETICA_BOLD,     8, cMuted);
+        Font fComentVal  = FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE,  9, cMuted);
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            Document document = new Document(PageSize.A4);
-            PdfWriter.getInstance(document, baos);
+            Document doc = new Document(PageSize.A4, 40, 40, 36, 36);
+            PdfWriter.getInstance(doc, baos);
+            doc.open();
 
-            document.open();
+            // ── CABECERA ────────────────────────────────────────────────
+            PdfPTable headerTbl = new PdfPTable(2);
+            headerTbl.setWidthPercentage(100);
+            headerTbl.setWidths(new float[]{3f, 2f});
+            headerTbl.setSpacingAfter(14);
 
-            // Título
-            Paragraph titulo = new Paragraph("Informe de Pedido #" + pedido.getId(),
-                    FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18));
-            titulo.setAlignment(Element.ALIGN_CENTER);
-            document.add(titulo);
+            PdfPCell cLeft = new PdfPCell();
+            cLeft.setBackgroundColor(cDark);
+            cLeft.setBorder(Rectangle.NO_BORDER);
+            cLeft.setPadding(18);
+            Paragraph pFact = new Paragraph("FACTURA", fHeader);
+            Paragraph pSub  = new Paragraph("Deposito GestorVentas", fHeaderSub);
+            pSub.setSpacingBefore(3);
+            cLeft.addElement(pFact);
+            cLeft.addElement(pSub);
+            headerTbl.addCell(cLeft);
 
-            document.add(new Paragraph("Cliente: " + pedido.getCliente().getNombre()));
-            document.add(new Paragraph(" ")); // Espacio
+            PdfPCell cRight = new PdfPCell();
+            cRight.setBackgroundColor(cDark);
+            cRight.setBorder(Rectangle.NO_BORDER);
+            cRight.setPadding(18);
+            cRight.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            Paragraph pNPedido = new Paragraph("Pedido #" + pedido.getId(), fNumPedido);
+            pNPedido.setAlignment(Element.ALIGN_RIGHT);
+            Paragraph pFechaP = new Paragraph(pedido.getFecha().format(fmt), fFecha);
+            pFechaP.setAlignment(Element.ALIGN_RIGHT);
+            pFechaP.setSpacingBefore(4);
+            cRight.addElement(pNPedido);
+            cRight.addElement(pFechaP);
+            headerTbl.addCell(cRight);
+            doc.add(headerTbl);
 
-            // Tabla
+            // ── BLOQUE DE / CLIENTE ─────────────────────────────────────
+            PdfPTable infoTbl = new PdfPTable(2);
+            infoTbl.setWidthPercentage(100);
+            infoTbl.setSpacingAfter(14);
+
+            PdfPCell cDe = new PdfPCell();
+            cDe.setBackgroundColor(cBgLight);
+            cDe.setBorderColor(cLine);
+            cDe.setPadding(12);
+            pdfLabelValue(cDe, "DE", "Deposito GestorVentas", fLabel, fValBold);
+            if (vendedor != null) {
+                pdfLabelValue(cDe, "RESPONSABLE", vendedor.getNombre() + " " + vendedor.getApellido(), fLabel, fValNormal);
+                pdfLabelValue(cDe, "EMAIL", vendedor.getEmail(), fLabel, fValNormal);
+            }
+            infoTbl.addCell(cDe);
+
+            PdfPCell cCli = new PdfPCell();
+            cCli.setBackgroundColor(cBgLight);
+            cCli.setBorderColor(cLine);
+            cCli.setPadding(12);
+            pdfLabelValue(cCli, "CLIENTE", cliente.getNombre(), fLabel, fValBold);
+            pdfLabelValue(cCli, "CIF", cliente.getCif() != null ? cliente.getCif() : "-", fLabel, fValNormal);
+            if (cliente.getTelefono() != null && !cliente.getTelefono().isBlank())
+                pdfLabelValue(cCli, "TELEFONO", cliente.getTelefono(), fLabel, fValNormal);
+            if (cliente.getEmail() != null && !cliente.getEmail().isBlank())
+                pdfLabelValue(cCli, "EMAIL", cliente.getEmail(), fLabel, fValNormal);
+            infoTbl.addCell(cCli);
+            doc.add(infoTbl);
+
+            // ── TABLA DE LINEAS ─────────────────────────────────────────
             PdfPTable tabla = new PdfPTable(4);
             tabla.setWidthPercentage(100);
+            tabla.setWidths(new float[]{5f, 1.2f, 2f, 2f});
+            tabla.setSpacingAfter(10);
 
-            // Encabezados
-            String[] headers = {"Producto", "Cantidad", "Precio", "Total"};
-            for (String h : headers) {
-                PdfPCell cell = new PdfPCell(new Phrase(h, FontFactory.getFont(FontFactory.HELVETICA_BOLD)));
-                cell.setHorizontalAlignment(Element.ALIGN_CENTER);
-                tabla.addCell(cell);
-            }
-            BigDecimal totalb = BigDecimal.ZERO;
-            // Filas
+            pdfHeaderCell(tabla, "PRODUCTO",    Element.ALIGN_LEFT,   fTblHead, cBgLight, cLine);
+            pdfHeaderCell(tabla, "CANT.",        Element.ALIGN_CENTER, fTblHead, cBgLight, cLine);
+            pdfHeaderCell(tabla, "P. UNITARIO", Element.ALIGN_RIGHT,  fTblHead, cBgLight, cLine);
+            pdfHeaderCell(tabla, "SUBTOTAL",    Element.ALIGN_RIGHT,  fTblHead, cBgLight, cLine);
+
+            boolean alt = false;
             for (LineaPedido linea : pedido.getLineas()) {
+                Color rowBg = alt ? cAltRow : Color.WHITE;
+                alt = !alt;
                 BigDecimal subtotal = linea.getPrecio()
                         .multiply(BigDecimal.valueOf(linea.getCantidad()))
                         .setScale(2, RoundingMode.HALF_UP);
-                tabla.addCell(linea.getProducto().getDescripcion());
-                tabla.addCell(String.valueOf(linea.getCantidad()));
-                tabla.addCell(nf.format(linea.getPrecio()));
-                tabla.addCell(nf.format(subtotal));
-                totalb = totalb.add(subtotal);
-
+                pdfDataCell(tabla, linea.getProducto().getDescripcion(), Element.ALIGN_LEFT,   fTblCell, rowBg, cLine);
+                pdfDataCell(tabla, String.valueOf(linea.getCantidad()),   Element.ALIGN_CENTER, fTblCell, rowBg, cLine);
+                pdfDataCell(tabla, nf.format(linea.getPrecio()),          Element.ALIGN_RIGHT,  fTblCell, rowBg, cLine);
+                pdfDataCell(tabla, nf.format(subtotal),                   Element.ALIGN_RIGHT,  fTblCell, rowBg, cLine);
             }
-            totalb = totalb.setScale(2, RoundingMode.HALF_UP);
-            document.add(tabla);
+            doc.add(tabla);
 
-            // Total
-            document.add(new Paragraph(" "));
-            Paragraph total = new Paragraph("Total: " + nf.format(totalb),
-                    FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14));
-            total.setAlignment(Element.ALIGN_RIGHT);
-            document.add(total);
+            // ── COMENTARIO + TOTALES ────────────────────────────────────
+            PdfPTable bottomTbl = new PdfPTable(2);
+            bottomTbl.setWidthPercentage(100);
+            bottomTbl.setWidths(new float[]{1f, 1f});
 
-            document.close();
+            PdfPCell cComent = new PdfPCell();
+            cComent.setBorder(Rectangle.NO_BORDER);
+            cComent.setPaddingTop(4);
+            if (pedido.getComentario() != null && !pedido.getComentario().isBlank()) {
+                Paragraph lbl = new Paragraph("COMENTARIO", fComentLbl);
+                lbl.setSpacingAfter(4);
+                cComent.addElement(lbl);
+                cComent.addElement(new Paragraph(pedido.getComentario(), fComentVal));
+            }
+            bottomTbl.addCell(cComent);
+
+            PdfPTable totBox = new PdfPTable(2);
+            totBox.setWidthPercentage(100);
+            totBox.setWidths(new float[]{1.4f, 1f});
+
+            pdfTotalRow(totBox, "Bruto",                              nf.format(bruto),          fTotLabel, fTotValue, cLine, Color.WHITE);
+            if (pedido.getDescuento() > 0)
+                pdfTotalRow(totBox, "Descuento (" + pedido.getDescuento() + "%)", "-" + nf.format(descuentoImporte), fTotLabel, fTotValue, cLine, Color.WHITE);
+            pdfTotalRow(totBox, "Base imponible",                     nf.format(base),           fTotLabel, fTotValue, cLine, Color.WHITE);
+            pdfTotalRow(totBox, "IVA (" + pedido.getIva() + "%)",    nf.format(ivaImporte),     fTotLabel, fTotValue, cLine, Color.WHITE);
+            pdfTotalRow(totBox, "TOTAL",                              nf.format(total),           fGrandLabel, fGrandVal, cDark, cDark);
+
+            PdfPCell cTotBox = new PdfPCell(totBox);
+            cTotBox.setBorder(Rectangle.NO_BORDER);
+            cTotBox.setPadding(0);
+            bottomTbl.addCell(cTotBox);
+            doc.add(bottomTbl);
+
+            // ── FOOTER ──────────────────────────────────────────────────
+            doc.add(new Paragraph(" "));
+            Paragraph footerP = new Paragraph("Deposito GestorVentas · " + LocalDate.now().getYear(), fFooter);
+            footerP.setAlignment(Element.ALIGN_CENTER);
+            doc.add(footerP);
+
+            doc.close();
             return baos.toByteArray();
 
         } catch (IOException | DocumentException e) {
             throw new RuntimeException("Error al generar PDF", e);
         }
+    }
+
+    private void pdfLabelValue(PdfPCell container, String label, String value, Font fLabel, Font fValue) {
+        Paragraph pLabel = new Paragraph(label, fLabel);
+        pLabel.setSpacingBefore(8);
+        container.addElement(pLabel);
+        container.addElement(new Paragraph(value, fValue));
+    }
+
+    private void pdfHeaderCell(PdfPTable table, String text, int align, Font font, Color bg, Color border) {
+        PdfPCell cell = new PdfPCell(new Phrase(text, font));
+        cell.setBackgroundColor(bg);
+        cell.setBorderColor(border);
+        cell.setPadding(9);
+        cell.setHorizontalAlignment(align);
+        table.addCell(cell);
+    }
+
+    private void pdfDataCell(PdfPTable table, String text, int align, Font font, Color bg, Color border) {
+        PdfPCell cell = new PdfPCell(new Phrase(text, font));
+        cell.setBackgroundColor(bg);
+        cell.setBorderColor(border);
+        cell.setPadding(9);
+        cell.setHorizontalAlignment(align);
+        table.addCell(cell);
+    }
+
+    private void pdfTotalRow(PdfPTable table, String label, String value,
+                              Font fLabel, Font fValue, Color border, Color bg) {
+        PdfPCell cLabel = new PdfPCell(new Phrase(label, fLabel));
+        cLabel.setBorderColor(border);
+        cLabel.setBackgroundColor(bg);
+        cLabel.setPadding(8);
+        cLabel.setPaddingLeft(10);
+        table.addCell(cLabel);
+
+        PdfPCell cValue = new PdfPCell(new Phrase(value, fValue));
+        cValue.setBorderColor(border);
+        cValue.setBackgroundColor(bg);
+        cValue.setPadding(8);
+        cValue.setPaddingRight(10);
+        cValue.setHorizontalAlignment(Element.ALIGN_RIGHT);
+        table.addCell(cValue);
     }
 
     /**
@@ -513,5 +674,52 @@ public class PedidoService {
             token = UUID.randomUUID().toString().replace("-", "");
         } while (pedidoRepository.existsByToken(token));
         return token;
+    }
+
+    @Transactional
+    public PedidoResponseDto reabrir(Long idCliente, Long id) {
+        Cliente cliente = clienteRepository.findById(idCliente).orElse(null);
+        if (cliente == null)
+            throw new RuntimeException("Cliente inexistente");
+        Pedido pedido = pedidoRepository.findById(id).orElse(null);
+        if (pedido == null)
+            throw new RuntimeException("Pedido inexistente");
+        if (!pedido.getCliente().equals(cliente))
+            throw new RuntimeException("Pedido inexistente");
+
+        List<LineaPedido> lineas = lineaPedidoRepository.getLineaPedidoByPedido(pedido);
+        for (LineaPedido linea : lineas) {
+            linea.setStockFinal(null);
+        }
+        lineaPedidoRepository.saveAll(lineas);
+
+        pedido.setFinalizado(false);
+        pedido = pedidoRepository.save(pedido);
+
+        return new PedidoResponseDto(pedido);
+    }
+
+    @Transactional
+    public PedidoResponseDto reabrir(long idVendedor, long idCliente, long id) {
+        Vendedor vendedor = vendedorRepository.findById(idVendedor);
+        if (vendedor == null)
+            throw new RuntimeException("Vendedor inexistente");
+        Cliente cliente = clienteRepository.findById(idCliente);
+        if (cliente == null || cliente.getVendedor() == null || cliente.getVendedor().getId() != idVendedor)
+            throw new RuntimeException("Cliente inexistente");
+        Pedido pedido = pedidoRepository.findById(id);
+        if (pedido == null || pedido.getCliente().getId() != idCliente)
+            throw new RuntimeException("Pedido inexistente");
+
+        List<LineaPedido> lineas = lineaPedidoRepository.getLineaPedidoByPedido(pedido);
+        for (LineaPedido linea : lineas) {
+            linea.setStockFinal(null);
+        }
+        lineaPedidoRepository.saveAll(lineas);
+
+        pedido.setFinalizado(false);
+        pedido = pedidoRepository.save(pedido);
+
+        return new PedidoResponseDto(pedido);
     }
 }
